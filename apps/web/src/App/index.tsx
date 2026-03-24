@@ -1,4 +1,4 @@
-import { ChatPage, EndpointCategory, WKApp, Menus } from '@octo/base';
+import { ChatPage, EndpointCategory, WKApp, Menus, shouldSkipChannelForSpace } from '@octo/base';
 import { ContactsList } from '@octo/contacts';
 import { BotStore } from '@octo/base';
 import React from 'react';
@@ -34,6 +34,10 @@ async function registerMenus() {
     for (const conversation of WKSDK.shared().conversationManager.conversations) {
       const channelInfo = WKSDK.shared().channelManager.getChannelInfo(conversation.channel)
       if (channelInfo?.mute) {
+        continue
+      }
+      // Space 过滤：复用 shouldSkipChannelForSpace 完整逻辑（含 channelSpaceMap 缓存）
+      if (shouldSkipChannelForSpace(conversation.channel)) {
         continue
       }
       badge += conversation.unread
