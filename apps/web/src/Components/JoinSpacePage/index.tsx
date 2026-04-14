@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { WKApp } from "@octo/base";
+import { WKApp, toJoinApprovalStatus } from "@octo/base";
 import { SpaceService } from "@octo/base";
 import { Button, Input, Toast } from "@douyinfe/semi-ui";
 import "./index.css";
@@ -73,7 +73,7 @@ export default function JoinSpacePage({ onSuccess }: JoinSpacePageProps) {
                 // 顺序保证 Layout 先切出 JoinSpacePage，再渲染 JoinApprovalResult，避免中间态
                 onSuccess();
                 WKApp.endpoints.onJoinApproval(
-                    status === "NEED_APPROVAL" ? "need_approval" : "pending",
+                    toJoinApprovalStatus(status),
                     inviteInfo.invite_code
                 );
                 return;
