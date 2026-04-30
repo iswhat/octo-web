@@ -266,6 +266,7 @@ export interface ChatCandidate {
     name: string;
     member_count: number | null;
     parent_group_no?: string;
+    is_bot?: boolean;
 }
 
 /** 成员候选项（添加成员弹窗用） */
