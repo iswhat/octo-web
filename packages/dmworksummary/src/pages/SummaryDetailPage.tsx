@@ -76,6 +76,7 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
 
     componentDidMount() {
         window.addEventListener("summary-status-change", this.handleStatusChangeEvent);
+        window.addEventListener("summary-batch-heartbeat", this.handleBatchHeartbeat);
         window.addEventListener("summary-list-unmount", this.handleListPageUnmount);
         this.loadDetail();
     }
@@ -92,6 +93,7 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
 
     componentWillUnmount() {
         window.removeEventListener("summary-status-change", this.handleStatusChangeEvent);
+        window.removeEventListener("summary-batch-heartbeat", this.handleBatchHeartbeat);
         window.removeEventListener("summary-list-unmount", this.handleListPageUnmount);
         this.clearAllTimers();
     }
@@ -217,6 +219,16 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
         } catch (err: any) {
             Toast.error(err.message || "操作失败");
         }
+    };
+
+    private handleBatchHeartbeat = (event: Event) => {
+        if (this.taskId == null) return;
+        const taskIds: number[] | undefined = (event as CustomEvent).detail?.taskIds;
+        if (!taskIds || !taskIds.includes(this.taskId)) return;
+
+        this.listPageActive = true;
+        this.lastEventTime = Date.now();
+        this.stopFallbackPoll();
     };
 
     private handleStatusChangeEvent = async (event: Event) => {

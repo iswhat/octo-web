@@ -133,6 +133,7 @@ export default class SummaryListPage extends Component<{}, SummaryListPageState>
         this.isBatchPolling = true;
         try {
             const updates = await api.batchStatus(taskIds);
+            window.dispatchEvent(new CustomEvent("summary-batch-heartbeat", { detail: { taskIds } }));
             const updateMap = new Map(updates.map(u => [u.id, u]));
             let changed = false;
             const changedIds: number[] = [];
@@ -191,6 +192,7 @@ export default class SummaryListPage extends Component<{}, SummaryListPageState>
     };
 
     handleCardClick = (taskId: number) => {
+        WKApp.routeRight.popToRoot();
         WKApp.routeRight.push(<SummaryDetailPage taskId={taskId} />);
     };
 
