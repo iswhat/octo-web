@@ -1,67 +1,50 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom/client';
 import { WKApp, Menus, ChannelTypeCommunityTopic } from '@octo/base';
-import type { IModule } from '@octo/base';
+import type { IModule, ConversationContext } from '@octo/base';
 import { ChannelTypeGroup } from 'wukongimjssdk';
+import WKSDK from 'wukongimjssdk';
 import TodoPage from './pages/TodoPage';
 import { createTodo } from './api/todoApi';
 import { Toast } from './utils/toast';
+import CreateTaskModal from './ui/CreateTaskModal';
 import './ui/tokens.css';
 
-/**
- * Callback-based coordination for 'wk:create-todo-from-chat'.
- * Replaces the previous module-level mutable `let` export.
- *
- * TodoPage registers a handler on mount; the context menu invokes it.
- * If no handler is registered (TodoPage not yet mounted), the payload
- * is buffered and delivered when TodoPage registers.
- */
-type CreateTodoPayload = {
-  source_channel_id: string;
-  source_channel_type: number;
-  title: string;
+export type OpenCreateTaskPayload = {
+  channelId: string;
+  channelType: number;
+  channelName?: string;
+  prefillTitle?: string;
+  prefillAssigneeUids?: string[];
+  /** If true, clear the input box after creating the task */
+  clearOnConfirm?: boolean;
 };
 
-let _pendingPayload: CreateTodoPayload | null = null;
-let _onCreateTodo: ((payload: CreateTodoPayload) => void) | null = null;
-
-/** Called by TodoPage on mount to receive create-todo events. */
-export function registerCreateTodoHandler(handler: (payload: CreateTodoPayload) => void): () => void {
-  _onCreateTodo = handler;
-  // Deliver any buffered payload immediately
-  if (_pendingPayload) {
-    handler(_pendingPayload);
-    _pendingPayload = null;
-  }
-  // Return unregister function for useEffect cleanup
-  return () => { _onCreateTodo = null; };
+/** 解析 @[uid:name] 格式，返回纯文本 title 和 uid 列表 */
+function parseMentionText(raw: string): { title: string; uids: string[] } {
+  const uids: string[] = [];
+  const title = raw.replace(/@\[([^:]+):([^\]]+)\]/g, (_match, uid, name) => {
+    if (uid !== '-1') uids.push(uid);
+    return uid === '-1' ? '@所有人' : `@${name}`;
+  });
+  return { title: title.trim(), uids: [...new Set(uids)] };
 }
 
-/** Called by the context menu to dispatch a create-todo event. */
-function dispatchCreateTodo(payload: CreateTodoPayload): void {
-  if (_onCreateTodo) {
-    _onCreateTodo(payload);
-  } else {
-    _pendingPayload = payload;
-  }
-}
+
 
 /** Guard against double-init (HMR in dev or future module lifecycle changes). */
 let _initialized = false;
 
-/** Stored handler refs for cleanup on HMR re-init. */
-let _sendAsTodoHandler: ((data: { title: string; source_channel_id: string; source_channel_type: number }) => void) | null = null;
-let _spaceChangedHandler: (() => void) | null = null;
-
 // Reset on HMR: tear down old listeners, reset init guard.
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    if (_sendAsTodoHandler) WKApp.mittBus.off('wk:send-as-todo', _sendAsTodoHandler);
-    if (_spaceChangedHandler) WKApp.mittBus.off('space-changed', _spaceChangedHandler);
-    _sendAsTodoHandler = null;
-    _spaceChangedHandler = null;
-    _pendingPayload = null;
-    _onCreateTodo = null;
     _initialized = false;
+    // Properly unmount React root before removing DOM node
+    _globalTodoModalRoot?.unmount();
+    _globalTodoModalRoot = null;
+    const el = document.getElementById('todo-global-modal-root');
+    if (el) el.remove();
+    _globalTodoModalMounted = false;
   });
 }
 
@@ -122,26 +105,8 @@ export default class TodoModule implements IModule {
       2000,
     );
 
-    // Handle "Send as Todo" from chat — keeps @octo/base decoupled from todo API
-    _sendAsTodoHandler = (data) => {
-      createTodo({
-        title: data.title,
-        source_channel_id: data.source_channel_id,
-        source_channel_type: data.source_channel_type,
-      }).then(() => {
-        Toast.success('Todo created');
-      }).catch((err: unknown) => {
-        console.error('[TodoModule] send-as-todo failed:', err);
-        Toast.error('Failed to create todo');
-      });
-    };
-    WKApp.mittBus.on('wk:send-as-todo', _sendAsTodoHandler);
-
-    // Clear pending event on space switch to avoid cross-space context leak
-    _spaceChangedHandler = () => {
-      _pendingPayload = null;
-    };
-    WKApp.mittBus.on('space-changed', _spaceChangedHandler);
+    // Mount global CreateTaskModal portal (handles Alt+Enter from any conversation)
+    mountGlobalTodoModal();
 
     // Chat integration
     this.registerChatContextMenu();
@@ -163,22 +128,24 @@ export default class TodoModule implements IModule {
           return null;
         }
         return {
-          title: 'Create Todo',
+          title: '创建任务',
           onClick: () => {
-            // conversationDigest is a standard getter on all WuKong IM MessageContent subclasses
-            const content = message.content as { conversationDigest?: string };
-            const title = content.conversationDigest ? content.conversationDigest.slice(0, 100) : '';
-            // Buffer the event BEFORE navigating — TodoPage will consume
-            // it on mount, avoiding the race where emit fires before the
-            // listener useEffect runs.
-            const payload = {
-              source_channel_id: message.channel.channelID,
-              source_channel_type: ct,
-              title,
-            };
-            // Dispatch via callback pattern — handles both mounted and not-yet-mounted cases
-            dispatchCreateTodo(payload);
-            WKApp.route.push('/todo');
+            // 优先用编辑后的内容（remoteExtra.contentEdit），fallback 到原始 conversationDigest
+            const remoteExtra = message.remoteExtra as { isEdit?: boolean; contentEdit?: { conversationDigest?: string } } | undefined;
+            const effectiveContent = (remoteExtra?.isEdit && remoteExtra?.contentEdit)
+              ? remoteExtra.contentEdit as { conversationDigest?: string }
+              : message.content as { conversationDigest?: string };
+            // 先解析再截断，避免 200 字符截断位置落在 @[uid:name] 占位符中间
+            const raw = effectiveContent.conversationDigest ?? '';
+            const { title: parsedTitle } = parseMentionText(raw);
+            const prefillTitle = parsedTitle.slice(0, 200);
+            const channelInfo = WKSDK.shared().channelManager.getChannelInfo(message.channel);
+            WKApp.mittBus.emit('wk:open-create-task-modal', {
+              channelId: message.channel.channelID,
+              channelType: ct,
+              channelName: channelInfo?.title,
+              prefillTitle,
+            });
           },
         };
       },
@@ -188,7 +155,8 @@ export default class TodoModule implements IModule {
 
   /**
    * Register todo toggle button in the chat toolbar.
-   * Only visible in group and topic channels. Navigates to /todo on click.
+   * Only visible in group and topic channels.
+   * Clicking opens CreateTaskModal with prefilled title (from input box) and channel info.
    */
   private registerChatToolbar(): void {
     WKApp.endpoints.registerChatToolbar(
@@ -199,18 +167,125 @@ export default class TodoModule implements IModule {
         if (channel.channelType !== ChannelTypeGroup && channel.channelType !== ChannelTypeCommunityTopic) {
           return undefined;
         }
-        return (
-          <div
-            title="Todos"
-            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-            onClick={() => {
-              WKApp.route.push('/todo');
-            }}
-          >
-            <CheckSquareIcon />
-          </div>
-        );
+        return <ChatToolbarTodoButton ctx={ctx} />;
       },
     );
   }
+}
+
+/**
+ * Chat toolbar Todo button.
+ * Emits 'wk:open-create-task-modal' — handled by GlobalTodoModal.
+ */
+function ChatToolbarTodoButton({ ctx }: { ctx: ConversationContext }) {
+  const channel = ctx.channel();
+  const channelInfo = WKSDK.shared().channelManager.getChannelInfo(channel);
+
+  const handleOpen = () => {
+    const inputCtx = ctx.messageInputContext();
+    const rawText = (inputCtx?.text() ?? '').trim().slice(0, 500);
+    const { title: prefillTitle, uids: prefillAssigneeUids } = parseMentionText(rawText);
+    const payload: OpenCreateTaskPayload = {
+      channelId: channel.channelID,
+      channelType: channel.channelType,
+      channelName: channelInfo?.title,
+      prefillTitle,
+      prefillAssigneeUids,
+      clearOnConfirm: true,
+    };
+    WKApp.mittBus.emit('wk:open-create-task-modal', payload);
+  };
+
+  return (
+    <div
+      title="创建任务"
+      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+      onClick={handleOpen}
+    >
+      <CheckSquareIcon />
+    </div>
+  );
+}
+
+/**
+ * Global CreateTaskModal driven by mittBus 'wk:open-create-task-modal'.
+ * Mounted once at module init — handles Alt+Enter from any conversation.
+ */
+let _globalTodoModalMounted = false;
+let _globalTodoModalRoot: ReturnType<typeof ReactDOM.createRoot> | null = null;
+
+function mountGlobalTodoModal() {
+  if (_globalTodoModalMounted) return;
+  _globalTodoModalMounted = true;
+  const container = document.createElement('div');
+  container.id = 'todo-global-modal-root';
+  document.body.appendChild(container);
+  _globalTodoModalRoot = ReactDOM.createRoot(container);
+  _globalTodoModalRoot.render(<GlobalTodoModal />);
+}
+
+function GlobalTodoModal() {
+  const [open, setOpen] = useState(false);
+  const [payload, setPayload] = useState<OpenCreateTaskPayload | null>(null);
+
+  useEffect(() => {
+    const handler = (data: OpenCreateTaskPayload) => {
+      // Parse mention placeholders in prefillTitle if not already parsed
+      if (data.prefillTitle && data.prefillTitle.includes('@[')) {
+        const { title, uids } = parseMentionText(data.prefillTitle);
+        data = { ...data, prefillTitle: title.slice(0, 200), prefillAssigneeUids: uids };
+      } else if (data.prefillTitle) {
+        data = { ...data, prefillTitle: data.prefillTitle.slice(0, 200) };
+      }
+      setPayload(data);
+      setOpen(true);
+    };
+    WKApp.mittBus.on('wk:open-create-task-modal', handler);
+    return () => {
+      WKApp.mittBus.off('wk:open-create-task-modal', handler);
+    };
+  }, []);
+
+  if (!open || !payload) return null;
+
+  const handleClose = () => setOpen(false);
+  const handleDirtyClose = () => {
+    if (window.confirm('有未保存的修改，确定放弃？')) setOpen(false);
+  };
+
+  const handleConfirm = async (req: Parameters<typeof createTodo>[0]) => {
+    try {
+      await createTodo(req);
+    } catch (e) {
+      Toast.error('创建任务失败');
+      throw e; // re-throw 让 CreateTaskModal 保持打开
+    }
+    // Send input content (with mention) + clear when triggered from toolbar / Alt+Enter
+    // 只在有预填文本时才发送（prefillTitle 非空 = 用户从输入框触发），纯附件场景不发消息
+    if (payload?.clearOnConfirm && payload.channelId && payload.prefillTitle) {
+      WKApp.mittBus.emit('wk:todo-created-from-input', {
+        channelId: payload.channelId,
+        channelType: payload.channelType,
+      });
+    }
+    Toast.success('任务已创建');
+    setOpen(false);
+  };
+
+  return (
+    <CreateTaskModal
+      visible={open}
+      onClose={handleClose}
+      onDirtyClose={handleDirtyClose}
+      onConfirm={handleConfirm}
+      prefillTitle={payload.prefillTitle}
+      prefillAssigneeUids={payload.prefillAssigneeUids}
+      sendOnConfirm={!!payload.clearOnConfirm && !!payload.prefillTitle}
+      channel={payload.channelId ? {
+        channelId: payload.channelId,
+        channelType: payload.channelType,
+        name: payload.channelName,
+      } : undefined}
+    />
+  );
 }

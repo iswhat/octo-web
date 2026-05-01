@@ -129,8 +129,14 @@ const ConversationSelectionStateBridge: React.FC<{
   return null;
 };
 
+interface ConversationState {
+  inputExpanded: boolean;
+  showDeleteConfirm: boolean;
+  contextMenuMessageID: string | null;
+}
+
 export class Conversation
-  extends Component<ConversationProps>
+  extends Component<ConversationProps, ConversationState>
   implements ConversationContext
 {
   // 缓存各会话的引用/回复状态，切换会话时保留
@@ -149,6 +155,7 @@ export class Conversation
   private _dragFileCallback?: (file: File) => void;
   private _cachedSelectedText: string | null = null;
   private _beforeUnloadHandler: () => void;
+  private _todoSendMessageHandler?: (data: { channelId: string; channelType: number }) => void;
   private _guardId: symbol = Symbol("pendingAttachmentGuard");
   private _addAttachmentFn?: (
     files: File[],
@@ -165,7 +172,6 @@ export class Conversation
       inputExpanded: false,
       showDeleteConfirm: false,
       contextMenuMessageID: null as string | null,
-      sendAsTodo: false,
     };
     this.onOpenThreadPanel = props.onOpenThreadPanel;
     this._beforeUnloadHandler = () => {
@@ -625,6 +631,15 @@ export class Conversation
       Conversation.replyStateCache.delete(channelKey);
     }
 
+    // Listen for todo-send-and-create: send current editor content (with mention), then clear
+    this._todoSendMessageHandler = (data: { channelId: string; channelType: number }) => {
+      const { channel } = this.props;
+      if (data.channelId === channel.channelID && data.channelType === channel.channelType) {
+        this._messageInputContext?.send();
+      }
+    };
+    WKApp.mittBus.on('wk:todo-created-from-input', this._todoSendMessageHandler);
+
     window.addEventListener("beforeunload", this._beforeUnloadHandler);
 
     this.vm.onFirstMessagesLoaded = () => {
@@ -637,6 +652,10 @@ export class Conversation
   }
 
   componentWillUnmount() {
+    if (this._todoSendMessageHandler) {
+      WKApp.mittBus.off('wk:todo-created-from-input', this._todoSendMessageHandler);
+      this._todoSendMessageHandler = undefined;
+    }
     window.removeEventListener("beforeunload", this._beforeUnloadHandler);
     // 注销附件守卫：只清除自己注册的，防止新实例 guard 被旧实例 unmount 覆盖
     if (WKApp.shared.pendingAttachmentGuardId === this._guardId) {
@@ -1789,50 +1808,7 @@ export class Conversation
                         // 存储 addAttachment 方法，供外部调用
                         this._addAttachmentFn = addFn;
                       }}
-                      extraActions={
-                        this.props.channel.channelType === ChannelTypeGroup ||
-                        this.props.channel.channelType ===
-                          ChannelTypeCommunityTopic ? (
-                          <label
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 4,
-                              cursor: "pointer",
-                              userSelect: "none",
-                              marginRight: 4,
-                              flexShrink: 0,
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={this.state.sendAsTodo}
-                              onChange={(e) =>
-                                this.setState({ sendAsTodo: e.target.checked })
-                              }
-                              style={{
-                                accentColor: "var(--wk-brand-primary, #7C5CFC)",
-                                cursor: "pointer",
-                                width: 14,
-                                height: 14,
-                                flexShrink: 0,
-                              }}
-                            />
-                            <span
-                              style={{
-                                fontSize: 12,
-                                color: this.state.sendAsTodo
-                                  ? "var(--wk-brand-primary, #7C5CFC)"
-                                  : "var(--wk-text-tertiary, rgba(0,0,0,0.45))",
-                                fontWeight: this.state.sendAsTodo ? 500 : 400,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              Also create Todo
-                            </span>
-                          </label>
-                        ) : undefined
-                      }
+
                       members={this.vm.subscribers.filter(
                         (s) => s.uid !== WKApp.loginInfo.uid
                       )}
@@ -1847,6 +1823,22 @@ export class Conversation
                           />
                         ) : undefined
                       }
+                      onAltEnter={() => {
+                        const { channel } = this.props;
+                        // Alt+Enter creates task only in group and topic channels
+                        if (channel.channelType !== ChannelTypeGroup && channel.channelType !== ChannelTypeCommunityTopic) return;
+                        const channelInfo = WKSDK.shared().channelManager.getChannelInfo(channel);
+                        // 传原始文本（含 @[uid:name] 占位符），由 GlobalTodoModal 先 parse 再截断
+                        // 避免 slice 截断位置落在占位符中间导致 mention 残留乱码
+                        const rawText = (this._messageInputContext?.text() ?? '').trim();
+                        WKApp.mittBus.emit('wk:open-create-task-modal', {
+                          channelId: channel.channelID,
+                          channelType: channel.channelType,
+                          channelName: channelInfo?.title,
+                          prefillTitle: rawText,
+                          clearOnConfirm: true,
+                        });
+                      }}
                       onExpandChange={(expanded) => {
                         this.setState({ inputExpanded: expanded });
                       }}
@@ -1880,18 +1872,6 @@ export class Conversation
                         mention?: MentionModel,
                         attachments?: { id: string; file: File }[]
                       ) => {
-                        // ── Send as To-do: capture intent, emit AFTER send ─
-                        const todoPayload =
-                          this.state.sendAsTodo && text?.trim()
-                            ? {
-                                title: text.trim(),
-                                source_channel_id: this.props.channel.channelID,
-                                source_channel_type:
-                                  this.props.channel.channelType,
-                              }
-                            : null;
-                        // ────────────────────────────────────────────────────
-
                         const content = new MessageText(text);
                         if (mention) {
                           const mn = new Mention();
@@ -2029,11 +2009,6 @@ export class Conversation
                           await this.sendMessage(content);
                         }
 
-                        // Emit todo event AFTER message sent successfully
-                        if (todoPayload) {
-                          WKApp.mittBus.emit("wk:send-as-todo", todoPayload);
-                          this.setState({ sendAsTodo: false });
-                        }
                       }}
                     ></MessageInput>
                   </div>

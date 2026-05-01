@@ -82,7 +82,10 @@ function MemberOption({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onClick();
+        if (e.key === 'Enter') {
+          e.stopPropagation(); // 防止冒泡触发 Modal 的 Enter 确认
+          onClick();
+        }
       }}
     >
       <div className="wk-member-picker__option-avatar">

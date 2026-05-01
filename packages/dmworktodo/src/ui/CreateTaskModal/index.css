@@ -1,7 +1,20 @@
 /* ─── CreateTaskModal 样式 ───────────────────────────── */
 
+/* 覆盖 Semi Modal 内边距，由 __content 统一控制 */
+.wk-create-task-modal .semi-modal-content {
+  padding: 0 !important;
+}
+
+.wk-create-task-modal .semi-modal-header {
+  margin: 0 !important;
+}
+
+.wk-create-task-modal .semi-modal-body-wrapper {
+  margin: 0 !important;
+}
+
 .wk-create-task-modal__content {
-  padding: var(--wk-sp-4, 16px);
+  padding: 24px;
 }
 
 .wk-create-task-modal__title {
@@ -38,6 +51,16 @@
 
 .wk-create-task-modal__input:focus {
   border-color: var(--wk-brand-primary, #7C5CFC);
+}
+
+.wk-create-task-modal__input--readonly {
+  background: var(--wk-bg-base, #f7f8fa);
+  color: var(--wk-text-secondary, #555);
+  cursor: default;
+}
+
+.wk-create-task-modal__input--readonly:focus {
+  border-color: var(--wk-border-default, #e5e5e5);
 }
 
 .wk-create-task-modal__input::placeholder {
@@ -169,4 +192,43 @@
 
 .wk-create-task-modal__btn--confirm .wk-create-task-modal__shortcut {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* DatePicker 对齐 input 样式 */
+.wk-create-task-modal__datepicker.semi-datepicker {
+  width: 100%;
+}
+
+.wk-create-task-modal__datepicker .semi-input-wrapper,
+.wk-create-task-modal__datepicker .semi-input {
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  height: auto !important;
+  background: var(--wk-bg-surface, #fff) !important;
+}
+
+.wk-create-task-modal__datepicker .semi-input-wrapper {
+  border: 1px solid var(--wk-border-default, #e5e5e5) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  box-shadow: none !important;
+}
+
+.wk-create-task-modal__datepicker .semi-input-wrapper:hover,
+.wk-create-task-modal__datepicker .semi-input-wrapper-focus {
+  border-color: var(--wk-brand-primary, #7C5CFC) !important;
+  box-shadow: none !important;
+}
+
+.wk-create-task-modal__datepicker .semi-input {
+  padding: 0 12px !important;
+  color: var(--wk-text-primary, #1a1a1a) !important;
+}
+
+.wk-create-task-modal__datepicker .semi-input::placeholder {
+  color: var(--wk-text-disabled, #bbb) !important;
+}
+
+.wk-create-task-modal__datepicker .semi-input-suffix {
+  color: var(--wk-text-tertiary, rgba(0,0,0,0.45)) !important;
 }

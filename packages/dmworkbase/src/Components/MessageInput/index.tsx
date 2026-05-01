@@ -95,7 +95,11 @@ interface MessageInputProps {
   botCommands?: BotCommand[];
   getChatContext?: () => ChatContextResult;
   onExpandChange?: (expanded: boolean) => void;
+  /** Called when Alt+Enter is pressed in the editor */
+  onAltEnter?: () => void;
 }
+
+
 
 export interface MentionEntity {
   uid: string;
@@ -176,6 +180,10 @@ export interface MessageInputContext {
   getAttachmentFiles: () => File[];
   text: () => string | undefined;
   focus: () => void;
+  /** Programmatically trigger send (same as pressing Enter) */
+  send: () => void;
+  /** Clear editor content without sending */
+  clear: () => void;
 }
 
 interface MemberInfo {
@@ -317,10 +325,11 @@ const MessageInput: React.FC<MessageInputProps> = (props) => {
     const channelInfo = WKSDK.shared().channelManager.getChannelInfo(channel);
     const name = channelInfo?.title || channelInfo?.name || "";
 
+    const altKey = /Mac|iPhone|iPad/i.test(navigator.userAgent) ? '⌥' : 'Alt';
     if (channel.channelType === ChannelTypePerson) {
       return name ? `对 ${name} 发送消息` : "发送消息";
     } else {
-      return name ? `在 ${name} 中回复...` : "输入消息...";
+      return name ? `在 ${name} 中回复...  ${altKey}+↵ 创建任务` : `输入消息...  ${altKey}+↵ 创建任务`;
     }
   }, [props.context]);
   const localMembersRef = useRef(props.members);
@@ -676,6 +685,15 @@ const MessageInput: React.FC<MessageInputProps> = (props) => {
         getAttachmentFiles,
         text: () => (editor ? extractMentionsFromEditor(editor) : undefined),
         focus: () => editor?.commands.focus(),
+        send: () => sendRef.current?.(),
+        clear: () => {
+          editor?.commands.clearContent(true);
+          setTopAttachments((prev) => {
+            prev.forEach((item) => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); });
+            return [];
+          });
+          attachmentFilesRef.current.clear();
+        },
       });
     }
   }, [
@@ -858,6 +876,12 @@ const MessageInput: React.FC<MessageInputProps> = (props) => {
           return true;
         }
         return false;
+      }
+
+      if (event.key === "Enter" && event.altKey) {
+        event.preventDefault();
+        props.onAltEnter?.();
+        return true;
       }
 
       if (event.key === "Enter" && !event.shiftKey) {

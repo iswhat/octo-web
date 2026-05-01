@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Modal } from '@douyinfe/semi-ui';
+import { Modal, DatePicker } from '@douyinfe/semi-ui';
 import type { CreateTodoReq } from '../../bridge/types';
 import MemberPicker from '../MemberPicker';
 import './index.css';
@@ -13,7 +13,32 @@ export interface CreateTaskModalProps {
   onConfirm: (req: CreateTodoReq) => Promise<void>;
   prefillTitle?: string;
   prefillAssigneeUids?: string[];
+  /** 控制按钮文案：true 显示「发送并创建任务」*/
+  sendOnConfirm?: boolean;
+
   channel?: { channelId: string; channelType: number; name?: string };
+}
+
+// ─── 本地日期格式化（避免 toISOString UTC 偏移）──────────────
+/** YYYY-MM-DD → Date（按本地时区解析，避免 new Date('YYYY-MM-DD') UTC 跨天） */
+function fromLocalDateString(s: string): Date {
+  const [yyyy, mm, dd] = s.split('-').map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
+function toLocalDateString(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getLocalTZOffset(): string {
+  const off = new Date().getTimezoneOffset(); // e.g. -480 for +08:00
+  const sign = off <= 0 ? '+' : '-';
+  const h = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
+  const m = String(Math.abs(off) % 60).padStart(2, '0');
+  return `${sign}${h}:${m}`;
 }
 
 // ─── 快捷日期计算 ──────────────────────────────────────────
@@ -58,6 +83,7 @@ export default function CreateTaskModal({
   onConfirm,
   prefillTitle = '',
   prefillAssigneeUids = [],
+  sendOnConfirm = false,
   channel,
 }: CreateTaskModalProps) {
   const [title, setTitle] = useState(prefillTitle);
@@ -68,6 +94,7 @@ export default function CreateTaskModal({
   const [submitting, setSubmitting] = useState(false);
 
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   // 用 join 做稳定的 key，避免每次渲染新数组引用触发 effect（比 JSON.stringify 更轻量）
   const prefillAssigneeUidsKey = prefillAssigneeUids.join(',');
   // stablePrefillAssigneeUids：用 key 做稳定化，避免每次渲染新数组引用导致 isDirty useMemo 失效
@@ -81,9 +108,9 @@ export default function CreateTaskModal({
   const [quickDates, setQuickDates] = useState(() => {
     const fri = getFridayInfo();
     return {
-      today: getTodayEnd().toISOString().split('T')[0],
-      tomorrow: getTomorrowEnd().toISOString().split('T')[0],
-      friday: fri.date.toISOString().split('T')[0],
+      today: toLocalDateString(getTodayEnd()),
+      tomorrow: toLocalDateString(getTomorrowEnd()),
+      friday: toLocalDateString(fri.date),
       fridayLabel: fri.label,
     };
   });
@@ -99,9 +126,9 @@ export default function CreateTaskModal({
       // visible=true 时重新计算日期，确保跨天/多次打开都是正确的
       const fri = getFridayInfo();
       setQuickDates({
-        today: getTodayEnd().toISOString().split('T')[0],
-        tomorrow: getTomorrowEnd().toISOString().split('T')[0],
-        friday: fri.date.toISOString().split('T')[0],
+        today: toLocalDateString(getTodayEnd()),
+        tomorrow: toLocalDateString(getTomorrowEnd()),
+        friday: toLocalDateString(fri.date),
         fridayLabel: fri.label,
       });
       setTimeout(() => confirmBtnRef.current?.focus(), 50);
@@ -141,7 +168,7 @@ export default function CreateTaskModal({
         title: trimmedTitle,
         description: description.trim() || undefined,
         assignee_ids: assigneeUids.length > 0 ? assigneeUids : undefined,
-        deadline: deadline || undefined,
+        deadline: deadline ? `${deadline}T23:59:59${getLocalTZOffset()}` : undefined,
         source_channel_id: channel?.channelId,
         source_channel_type: channel?.channelType,
         source_name: channel?.name,
@@ -171,14 +198,14 @@ export default function CreateTaskModal({
     (e: React.KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleClose();
-      } else if (e.key === 'Enter' && e.altKey) {
-        // Alt+Enter 全局提交（不管焦点在哪）
+      } else if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+        // textarea / input（如 MemberPicker 搜索框）内 Enter 不触发提交
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'TEXTAREA') return;
+        // INPUT 里只有 title input 允许 Enter 提交，其他 input（MemberPicker 搜索、DatePicker）不触发
+        if (tag === 'INPUT' && e.target !== titleInputRef.current) return;
         e.preventDefault();
         handleConfirm();
-      } else if (e.key === 'Enter' && e.target === confirmBtnRef.current) {
-        // 焦点在确认按钮时，button 的默认行为已经会触发 click → handleConfirm
-        // 不手动调用，避免双重触发
-        e.preventDefault(); // 仍然阻止冒泡到 Modal 外层
       }
     },
     [handleClose, handleConfirm]
@@ -192,6 +219,7 @@ export default function CreateTaskModal({
       width={480}
       closable={false}
       maskClosable={false}
+      centered
       className="wk-create-task-modal"
     >
       <div className="wk-create-task-modal__content" onKeyDown={handleKeyDown}>
@@ -201,11 +229,13 @@ export default function CreateTaskModal({
         <div className="wk-create-task-modal__field">
           <label className="wk-create-task-modal__label">任务名</label>
           <input
+            ref={titleInputRef}
             type="text"
-            className="wk-create-task-modal__input"
+            className={`wk-create-task-modal__input${sendOnConfirm ? ' wk-create-task-modal__input--readonly' : ''}`}
             placeholder="输入任务名称..."
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={sendOnConfirm ? () => {} : (e) => setTitle(e.target.value)}
+            readOnly={sendOnConfirm}
             autoFocus={false}
           />
         </div>
@@ -241,16 +271,24 @@ export default function CreateTaskModal({
             >
               {quickDates.fridayLabel}
             </button>
-            <button type="button" className="wk-create-task-modal__date-btn" onClick={() => handleQuickDate('custom')}>
-              自定义...
-            </button>
+
           </div>
-          <input
-            type="date"
-            className="wk-create-task-modal__input"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            min={new Date().toISOString().split('T')[0]}
+          <DatePicker
+            className="wk-create-task-modal__datepicker"
+            style={{ width: '100%' }}
+            value={deadline ? fromLocalDateString(deadline) : undefined}
+            onChange={(date) => {
+              if (!date) { setDeadline(''); return; }
+              const d = date instanceof Date ? date : fromLocalDateString(String(date));
+              // 用本地年月日，避免 toISOString() UTC 转换导致日期退一天
+              const yyyy = d.getFullYear();
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              setDeadline(`${yyyy}-${mm}-${dd}`);
+            }}
+            disabledDate={(date) => !!date && date < new Date(new Date().setHours(0,0,0,0))}
+            placeholder="选择截止日期"
+            density="compact"
           />
         </div>
 
@@ -286,7 +324,7 @@ export default function CreateTaskModal({
             onClick={handleConfirm}
             disabled={!title.trim() || submitting}
           >
-            发送并创建任务 <span className="wk-create-task-modal__shortcut">↵</span>
+            {sendOnConfirm ? '发送并创建任务' : '创建任务'} <span className="wk-create-task-modal__shortcut">↵</span>
           </button>
         </div>
       </div>

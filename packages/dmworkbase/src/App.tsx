@@ -29,8 +29,9 @@ export type MittEvents = {
     /** 消息摘要（用于回复时显示） */
     conversationDigest?: string;
   } | null;
-  'wk:send-as-todo': { title: string; source_channel_id: string; source_channel_type: number };
-  'wk:create-todo-from-chat': { title: string; source_channel_id: string; source_channel_type: number };
+  'wk:open-create-task-modal': { channelId: string; channelType: number; channelName?: string; prefillTitle?: string; prefillAssigneeUids?: string[]; clearOnConfirm?: boolean };
+  /** After todo created from toolbar/Alt+Enter, send editor content then clear */
+  'wk:todo-created-from-input': { channelId: string; channelType: number };
   "summary-space-changed": undefined;
   /**
    * 频道头像发生变化（上传/更新）时广播。订阅者（例如 WKAvatar）可依据 channelID +

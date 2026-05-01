@@ -8,7 +8,7 @@ import TodoFilterBar from '../ui/TodoFilterBar';
 import AssigneeEditor from '../ui/AssigneeEditor';
 import UserName from '../ui/UserName';
 import { Toast } from '../utils/toast';
-import { registerCreateTodoHandler } from '../module';
+
 import './TodoPage.css';
 
 // ─── Detail Side Panel ──────────────────────────────────
@@ -671,22 +671,6 @@ export default function TodoPage() {
     WKApp.mittBus.on('space-changed', handler);
     return () => { WKApp.mittBus.off('space-changed', handler); };
   }, [loadGoals]);
-
-  // Register handler for "Create Todo from chat" events.
-  // Uses callback pattern instead of mutable module-level state.
-  useEffect(() => {
-    const unregister = registerCreateTodoHandler((data) => {
-      setSelectedId('__all__');
-      WKApp.routeRight.replaceToRoot(
-        <TodoListView
-          title="All Todos"
-          onGoalsRefresh={loadGoals}
-          prefillTodo={{ title: data.title || '', source_channel_id: data.source_channel_id || '', source_channel_type: data.source_channel_type || 0 }}
-        />
-      );
-    });
-    return unregister;
-  }, [loadGoals]); // loadGoals is stable so this effectively runs once
 
   const handleAllTodosClick = useCallback(() => {
     setSelectedId('__all__');
