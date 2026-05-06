@@ -103,9 +103,6 @@
     font-weight: 500;
     color: var(--semi-color-text-0);
     flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     margin-right: 8px;
 }
 

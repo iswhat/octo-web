@@ -5,6 +5,7 @@ import WKApp from "@octo/base/src/App";
 import type { SummaryListItem } from "../types/summary";
 import { ParticipantStatus } from "../types/summary";
 import TaskStatusBadge from "./TaskStatusBadge";
+import OverflowTooltip from "./OverflowTooltip";
 
 interface SummaryCardProps {
     task: SummaryListItem;
@@ -21,9 +22,9 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ task, onClick, onDelete, onRe
     return (
         <div className="summary-card" onClick={() => onClick(task.task_id)}>
             <div className="summary-card-header">
-                <div className="summary-card-title">
+                <OverflowTooltip className="summary-card-title">
                     {task.title || task.task_no}
-                </div>
+                </OverflowTooltip>
                 <TaskStatusBadge status={task.status} />
             </div>
 

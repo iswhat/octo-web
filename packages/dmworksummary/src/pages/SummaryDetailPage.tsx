@@ -12,6 +12,7 @@ import WKApp from "@octo/base/src/App";
 import { splitSummaryText } from "../utils/splitMessage";
 import SummaryConfirmPage from "./SummaryConfirmPage";
 import * as api from "../api/summaryApi";
+import OverflowTooltip from "../components/OverflowTooltip";
 import type {
     SummaryDetail,
     PersonalResult,
@@ -690,7 +691,7 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
         return (
             <div className="summary-detail-header" style={{ padding: "20px 24px 12px", display: "flex", flexDirection: "column", alignItems: "stretch", width: "100%", boxSizing: "border-box", gap: 0, marginBottom: 0 }}>
                 <div className="summary-detail-header-top" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, width: "100%" }}>
-                    <h2 className="summary-detail-title" style={{ margin: 0, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 20, fontWeight: 600, lineHeight: "28px", color: "var(--semi-color-text-0)" }}>{detail?.title || "总结详情"}</h2>
+                    <OverflowTooltip as="h2" className="summary-detail-title" style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 20, fontWeight: 600, lineHeight: "28px", color: "var(--semi-color-text-0)" }}>{detail?.title || "总结详情"}</OverflowTooltip>
                     <div className="summary-detail-header-actions" style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, paddingTop: 2 }}>
                         {detail && detail.status === TaskStatus.COMPLETED && (
                             <Button
