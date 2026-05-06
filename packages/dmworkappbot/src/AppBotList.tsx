@@ -15,15 +15,19 @@ interface AppBotInfo {
 export default function AppBotList() {
   const [bots, setBots] = useState<AppBotInfo[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const loadData = async () => {
     setLoading(true)
+    setError(null)
     try {
       const spaceId = WKApp.shared.currentSpaceId
       const params = spaceId ? { param: { space_id: spaceId } } : undefined
       const res = await WKApp.apiClient.get("/app_bot/available", params)
       setBots(res || [])
-    } catch {
+    } catch (err) {
+      console.warn('[AppBotList] Failed to load bots:', err)
+      setError('加载失败，请稍后重试')
       setBots([])
     } finally {
       setLoading(false)
@@ -43,6 +47,18 @@ export default function AppBotList() {
 
   if (loading) {
     return <div className="appbot-page"><div className="appbot-loading">加载中...</div></div>
+  }
+
+  if (error) {
+    return (
+      <div className="appbot-page">
+        <div className="appbot-empty">
+          <div className="appbot-empty-icon">⚠️</div>
+          <div className="appbot-empty-text">{error}</div>
+          <button className="appbot-retry-btn" onClick={loadData}>重试</button>
+        </div>
+      </div>
+    )
   }
 
   if (bots.length === 0) {
