@@ -131,6 +131,13 @@
   justify-content: center;
 }
 
+/* 文件类型图标（SVG 图片） */
+.wk-file-list-panel__item-file-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
 /* 缩略图模式 */
 .wk-file-list-panel__item-icon--thumbnail {
   width: 40px;

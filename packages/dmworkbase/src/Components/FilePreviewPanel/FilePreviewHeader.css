@@ -4,14 +4,15 @@
    ============================================ */
 
 .wk-file-preview-header {
-  height: var(--wk-height-chat-conversation-header);
-  min-height: var(--wk-height-chat-conversation-header);
+  height: var(--wk-sp-12);
+  min-height: var(--wk-sp-12);
   display: flex;
   align-items: center;
-  padding: 0 var(--wk-sp-3);
+  justify-content: space-between;
+  padding: 0 var(--wk-sp-4);
   border-bottom: 1px solid var(--wk-border-default);
   background-color: var(--wk-bg-surface);
-  gap: var(--wk-sp-2);
+  border-radius: var(--wk-r-md) var(--wk-r-md) 0 0;
 }
 
 /* ============================================
@@ -21,44 +22,48 @@
 .wk-file-preview-header__left {
   display: flex;
   align-items: center;
-  gap: var(--wk-sp-2);
+  gap: var(--wk-sp-1);
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 150px;
 }
 
 /* 通用按钮样式 */
 .wk-file-preview-header__btn {
-  width: 28px;
-  height: 28px;
+  width: var(--wk-sp-4);
+  height: var(--wk-sp-4);
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   background: transparent;
-  border-radius: var(--wk-r-sm);
   cursor: pointer;
-  color: var(--wk-text-secondary);
-  transition: background 0.15s, color 0.15s;
+  color: var(--wk-icon-muted);
+  transition: color var(--wk-dur-fast);
+  flex-shrink: 0;
 }
 
 .wk-file-preview-header__btn:hover {
-  background: var(--wk-bg-hover);
   color: var(--wk-text-primary);
 }
 
 /* 激活状态（如 TOC 按钮展开时） */
 .wk-file-preview-header__btn--active {
-  background: var(--wk-brand-primary-bg);
   color: var(--wk-brand-primary);
 }
 
 .wk-file-preview-header__btn--active:hover {
-  background: var(--wk-brand-primary-bg);
   color: var(--wk-brand-primary);
 }
 
 .wk-file-preview-header__btn--close:hover {
-  background: var(--wk-color-danger-light);
   color: var(--wk-color-danger);
+}
+
+/* 返回按钮 */
+.wk-file-preview-header__btn--back {
+  margin-right: var(--wk-sp-1);
 }
 
 /* ============================================
@@ -72,17 +77,17 @@
 .wk-file-preview-header__dropdown-btn {
   display: flex;
   align-items: center;
-  gap: var(--wk-sp-1-5);
-  padding: var(--wk-sp-1) var(--wk-sp-2);
+  gap: var(--wk-sp-1);
+  padding: 0;
   border: none;
   background: transparent;
   border-radius: var(--wk-r-sm);
   cursor: default;
   color: var(--wk-text-primary);
-  font-size: var(--wk-text-size-base);
-  font-weight: 500;
-  transition: background 0.15s;
-  max-width: 240px;
+  font-size: var(--wk-text-size-md);
+  font-weight: var(--wk-font-medium);
+  transition: background var(--wk-dur-fast);
+  max-width: 150px;
   min-width: 0;
 }
 
@@ -91,9 +96,8 @@
   cursor: pointer;
 }
 
-.wk-file-preview-header__dropdown-btn--has-files:hover,
-.wk-file-preview-header__dropdown-btn--open {
-  background: var(--wk-bg-hover);
+.wk-file-preview-header__dropdown-btn--has-files:hover {
+  opacity: 0.8;
 }
 
 .wk-file-preview-header__dropdown-btn > svg:first-child {
@@ -101,10 +105,20 @@
   color: var(--wk-text-secondary);
 }
 
+/* 文件类型图标 */
+.wk-file-preview-header__file-icon {
+  width: var(--wk-sp-4);
+  height: var(--wk-sp-4);
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .wk-file-preview-header__dropdown-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 110px;
+  line-height: var(--wk-sp-5);
 }
 
 .wk-file-preview-header__dropdown-caret {
@@ -232,9 +246,10 @@
 
 .wk-file-preview-header__sep {
   width: 1px;
-  height: 16px;
+  height: var(--wk-sp-3);
   background: var(--wk-border-default);
-  margin: 0 var(--wk-sp-1);
+  border-radius: var(--wk-r-full);
+  flex-shrink: 0;
 }
 
 /* ============================================
@@ -244,21 +259,27 @@
 .wk-file-preview-header__view-toggle {
   display: flex;
   align-items: center;
-  background: var(--wk-bg-hover);
-  border-radius: var(--wk-r-sm);
-  padding: 2px;
+  gap: var(--wk-sp-1);
+  background: var(--wk-bg-tab);
+  border-radius: var(--wk-r-full);
+  padding: var(--wk-sp-0-5);
 }
 
 .wk-file-preview-header__view-toggle-btn {
-  padding: 4px 10px;
+  width: var(--wk-sp-10);
+  height: var(--wk-sp-4);
+  padding: var(--wk-sp-0-5) var(--wk-sp-2);
   border: none;
   background: transparent;
-  border-radius: calc(var(--wk-r-sm) - 2px);
+  border-radius: var(--wk-r-full);
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--wk-text-secondary);
-  transition: background 0.15s, color 0.15s;
+  font-size: var(--wk-text-size-tiny);
+  font-weight: var(--wk-font-medium);
+  color: var(--wk-icon-muted);
+  transition: background var(--wk-dur-fast), color var(--wk-dur-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .wk-file-preview-header__view-toggle-btn:hover {
@@ -268,19 +289,7 @@
 .wk-file-preview-header__view-toggle-btn--active {
   background: var(--wk-bg-surface);
   color: var(--wk-text-primary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-/* ============================================
-   中间区域：类型相关工具
-   ============================================ */
-
-.wk-file-preview-header__mid {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
+  border-radius: var(--wk-r-full);
 }
 
 /* ============================================
@@ -290,7 +299,7 @@
 .wk-file-preview-header__actions {
   display: flex;
   align-items: center;
-  gap: var(--wk-sp-0-5);
+  gap: var(--wk-sp-4);
   flex-shrink: 0;
 }
 
@@ -298,9 +307,35 @@
    响应式：小屏幕隐藏部分按钮
    ============================================ */
 
+/* 暗色主题适配 */
+body[theme-mode="dark"] .wk-file-preview-header__btn {
+  color: var(--wk-white-alpha-40);
+}
+
+body[theme-mode="dark"] .wk-file-preview-header__btn:hover {
+  color: var(--wk-text-primary);
+}
+
+body[theme-mode="dark"] .wk-file-preview-header__view-toggle {
+  background: var(--wk-white-alpha-07);
+}
+
+body[theme-mode="dark"] .wk-file-preview-header__view-toggle-btn {
+  color: var(--wk-white-alpha-40);
+}
+
+body[theme-mode="dark"] .wk-file-preview-header__view-toggle-btn--active {
+  background: var(--wk-white-alpha-12);
+  color: var(--wk-color-white);
+}
+
+body[theme-mode="dark"] .wk-file-preview-header__sep {
+  background: var(--wk-white-alpha-12);
+}
+
 @media (max-width: 480px) {
   .wk-file-preview-header__dropdown-text {
-    max-width: 100px;
+    max-width: 80px;
   }
 
   .wk-file-preview-header__view-toggle {

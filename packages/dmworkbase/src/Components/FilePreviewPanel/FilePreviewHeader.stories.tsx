@@ -203,7 +203,7 @@ export const FullFeatures: Story = {
     onFileSelect: (file) => console.log("Selected:", file.name),
     onDownload: () => console.log("Download clicked"),
     onOpenExternal: () => console.log("Open external clicked"),
-    onFullscreen: () => console.log("Fullscreen clicked"),
+    showOpenExternal: true,
     onReply: () => console.log("Reply clicked"),
     showViewToggle: true,
     viewMode: "preview",

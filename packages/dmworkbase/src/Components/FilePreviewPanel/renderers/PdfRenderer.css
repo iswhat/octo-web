@@ -19,76 +19,53 @@
 .wk-file-preview-pdf-renderer__toolbar {
   display: flex;
   align-items: center;
-  gap: var(--wk-sp-2);
-  padding: var(--wk-sp-2) var(--wk-sp-3);
-  background: var(--wk-bg-base);
-  border-bottom: 1px solid var(--wk-border-subtle);
+  gap: var(--wk-sp-4);
+  padding: var(--wk-sp-3) var(--wk-sp-4);
+  height: var(--wk-sp-12);
+  background: var(--wk-brand-tint-04);
+  border-bottom: 1px solid var(--wk-brand-tint-15);
   flex-shrink: 0;
 }
 
-.wk-file-preview-pdf-renderer__toolbar-btn {
+/* 侧边栏切换按钮 */
+.wk-file-preview-pdf-renderer__toolbar-sidebar-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--wk-sp-6);
+  height: var(--wk-sp-6);
   border: none;
   background: transparent;
-  color: var(--wk-text-secondary);
+  color: var(--wk-icon-muted);
   border-radius: var(--wk-r-xs);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: color var(--wk-dur-fast);
+  flex-shrink: 0;
 }
 
-.wk-file-preview-pdf-renderer__toolbar-btn:hover {
-  background: var(--wk-bg-hover);
+.wk-file-preview-pdf-renderer__toolbar-sidebar-btn:hover {
   color: var(--wk-text-primary);
 }
 
-.wk-file-preview-pdf-renderer__toolbar-btn--disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.wk-file-preview-pdf-renderer__toolbar-btn--disabled:hover {
-  background: transparent;
-  color: var(--wk-text-secondary);
-}
-
+/* 分隔线 */
 .wk-file-preview-pdf-renderer__toolbar-divider {
   width: 1px;
-  height: 20px;
-  background: var(--wk-border-subtle);
-  margin: 0 var(--wk-sp-1);
+  height: var(--wk-sp-3);
+  background: var(--wk-border-default);
+  border-radius: var(--wk-r-full);
+  flex-shrink: 0;
+}
+
+/* 中间区域 */
+.wk-file-preview-pdf-renderer__toolbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
 }
 
 /* ============================================
-   缩放选择器
-   ============================================ */
-
-.wk-file-preview-pdf-renderer__zoom-select {
-  height: 28px;
-  padding: 0 var(--wk-sp-2);
-  border: 1px solid var(--wk-border-default);
-  border-radius: var(--wk-r-xs);
-  background: var(--wk-bg-surface);
-  color: var(--wk-text-primary);
-  font-size: var(--wk-text-size-xs);
-  cursor: pointer;
-  outline: none;
-  min-width: 90px;
-}
-
-.wk-file-preview-pdf-renderer__zoom-select:hover {
-  background: var(--wk-bg-hover);
-}
-
-.wk-file-preview-pdf-renderer__zoom-select:focus {
-  border-color: var(--wk-brand-primary);
-}
-
-/* ============================================
-   页面导航
+   页码导航
    ============================================ */
 
 .wk-file-preview-pdf-renderer__page-nav {
@@ -97,15 +74,23 @@
   gap: var(--wk-sp-1);
 }
 
+.wk-file-preview-pdf-renderer__page-label {
+  font-size: var(--wk-text-size-md);
+  font-weight: var(--wk-font-regular);
+  line-height: var(--wk-sp-5);
+  color: var(--wk-text-primary);
+}
+
 .wk-file-preview-pdf-renderer__page-input {
-  width: 40px;
-  height: 28px;
-  padding: 0 var(--wk-sp-2);
-  border: 1px solid var(--wk-border-default);
-  border-radius: var(--wk-r-xs);
+  width: var(--wk-sp-8);
+  height: var(--wk-sp-6);
+  padding: var(--wk-sp-0-5) var(--wk-sp-1-5);
+  border: 1px solid var(--wk-brand-tint-10);
+  border-radius: var(--wk-r-sm);
   background: var(--wk-bg-surface);
   color: var(--wk-text-primary);
-  font-size: var(--wk-text-size-xs);
+  font-size: var(--wk-text-size-md);
+  font-weight: var(--wk-font-regular);
   text-align: center;
   outline: none;
 }
@@ -114,10 +99,82 @@
   border-color: var(--wk-brand-primary);
 }
 
-.wk-file-preview-pdf-renderer__page-total {
-  color: var(--wk-text-secondary);
-  font-size: var(--wk-text-size-xs);
+/* ============================================
+   缩放控制
+   ============================================ */
+
+.wk-file-preview-pdf-renderer__zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--wk-sp-2);
+}
+
+/* 缩放胶囊按钮 */
+.wk-file-preview-pdf-renderer__zoom-capsule {
+  display: flex;
+  align-items: center;
+  gap: var(--wk-sp-1);
+  height: var(--wk-sp-6);
+  padding: var(--wk-sp-1-5) var(--wk-sp-3);
+  background: var(--wk-bg-surface);
+  border: 1px solid var(--wk-brand-tint-10);
+  border-radius: var(--wk-r-full);
+}
+
+.wk-file-preview-pdf-renderer__zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--wk-sp-4);
+  height: var(--wk-sp-4);
+  border: none;
+  background: transparent;
+  color: var(--wk-icon-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--wk-dur-fast);
+}
+
+.wk-file-preview-pdf-renderer__zoom-btn:hover {
+  color: var(--wk-text-primary);
+}
+
+.wk-file-preview-pdf-renderer__zoom-value {
+  font-size: var(--wk-text-size-sm);
+  font-weight: var(--wk-font-semibold);
+  line-height: var(--wk-sp-5);
+  color: var(--wk-text-strong);
+  min-width: 36px;
+  text-align: center;
+}
+
+/* 适应宽度按钮 */
+.wk-file-preview-pdf-renderer__fit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--wk-sp-6);
+  padding: var(--wk-sp-1-5) var(--wk-sp-3);
+  background: var(--wk-bg-surface);
+  border: 1px solid var(--wk-brand-tint-10);
+  border-radius: var(--wk-r-full);
+  font-size: var(--wk-text-size-sm);
+  font-weight: var(--wk-font-semibold);
+  line-height: var(--wk-sp-5);
+  color: var(--wk-text-strong);
+  cursor: pointer;
+  transition: background var(--wk-dur-fast), border-color var(--wk-dur-fast);
   white-space: nowrap;
+}
+
+.wk-file-preview-pdf-renderer__fit-btn:hover {
+  background: var(--wk-bg-hover);
+}
+
+.wk-file-preview-pdf-renderer__fit-btn--active {
+  background: var(--wk-brand-primary-bg);
+  border-color: var(--wk-brand-primary);
+  color: var(--wk-brand-primary);
 }
 
 /* ============================================
@@ -356,7 +413,54 @@
    ============================================ */
 
 body[theme-mode="dark"] .wk-file-preview-pdf-renderer__toolbar {
-  background: var(--wk-bg-elevated);
+  background: var(--wk-white-alpha-04);
+  border-bottom-color: var(--wk-white-alpha-07);
+}
+
+body[theme-mode="dark"] .wk-file-preview-pdf-renderer__toolbar-sidebar-btn {
+  color: var(--wk-white-alpha-40);
+}
+
+body[theme-mode="dark"]
+  .wk-file-preview-pdf-renderer__toolbar-sidebar-btn:hover {
+  color: var(--wk-text-primary);
+}
+
+body[theme-mode="dark"] .wk-file-preview-pdf-renderer__toolbar-divider {
+  background: var(--wk-white-alpha-12);
+}
+
+body[theme-mode="dark"] .wk-file-preview-pdf-renderer__page-label {
+  color: var(--wk-text-primary);
+}
+
+body[theme-mode="dark"] .wk-file-preview-pdf-renderer__page-input {
+  background: var(--wk-white-alpha-07);
+  border-color: var(--wk-white-alpha-07);
+  color: var(--wk-text-primary);
+}
+
+body[theme-mode="dark"] .wk-file-preview-pdf-renderer__zoom-capsule {
+  background: var(--wk-white-alpha-07);
+  border-color: var(--wk-white-alpha-07);
+}
+
+body[theme-mode="dark"] .wk-file-preview-pdf-renderer__zoom-btn {
+  color: var(--wk-white-alpha-40);
+}
+
+body[theme-mode="dark"] .wk-file-preview-pdf-renderer__zoom-btn:hover {
+  color: var(--wk-text-primary);
+}
+
+body[theme-mode="dark"] .wk-file-preview-pdf-renderer__zoom-value {
+  color: var(--wk-white-alpha-80);
+}
+
+body[theme-mode="dark"] .wk-file-preview-pdf-renderer__fit-btn {
+  background: var(--wk-white-alpha-07);
+  border-color: var(--wk-white-alpha-07);
+  color: var(--wk-white-alpha-80);
 }
 
 body[theme-mode="dark"] .wk-file-preview-pdf-renderer__sidebar {

@@ -1,23 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from "react";
+import { ArrowLeft, List } from "lucide-react";
 import {
-  ChevronDown,
-  FileText,
-  Download,
-  ExternalLink,
-  Maximize2,
-  Reply,
-  X,
-  ArrowLeft,
-  File,
-  FileImage,
-  FileCode,
-  FileSpreadsheet,
-  Presentation,
-  FileArchive,
-  FileAudio,
-  FileVideo,
-  List,
-} from "lucide-react";
+  IconLaunch,
+  IconMessage,
+  IconDownload,
+  IconClose,
+  IconDropdown,
+} from "./icons";
+import { getFileIcon as getFileIconUrl } from "../MessageInput/AttachmentNode";
 import { FilePreviewInfo } from "./types";
 import "./FilePreviewHeader.css";
 
@@ -62,8 +52,6 @@ export interface FilePreviewHeaderProps {
   onOpenExternal?: () => void;
   /** 是否显示新标签打开按钮（默认 false，仅 HTML 文件显示） */
   showOpenExternal?: boolean;
-  /** 全屏预览回调 */
-  onFullscreen?: () => void;
   /** 回复消息回调 */
   onReply?: () => void;
   /** 当前视图模式 */
@@ -72,8 +60,6 @@ export interface FilePreviewHeaderProps {
   onViewModeChange?: (mode: "preview" | "source") => void;
   /** 是否显示视图切换（仅代码/HTML等类型显示） */
   showViewToggle?: boolean;
-  /** 自定义中间区域内容（类型相关工具） */
-  typeTools?: React.ReactNode;
 
   /** 侧边文件列表面板是否打开 */
   isFilePanelOpen?: boolean;
@@ -102,9 +88,12 @@ export interface FilePreviewHeaderProps {
   currentFilesPage?: number;
 }
 
-/** 判断是否为图片类型 */
-function isImageCategory(category?: string): boolean {
-  return category === "image";
+/** 判断是否为图片类型（同时支持 category 和扩展名判断） */
+function isImageType(category?: string, extension?: string): boolean {
+  if (category === "image") return true;
+  if (!extension) return false;
+  const ext = extension.toLowerCase();
+  return ["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg"].includes(ext);
 }
 
 /** Hover 下拉列表项组件 */
@@ -119,7 +108,7 @@ const DropdownFileItem = memo(
     onClick: () => void;
   }) => {
     const [thumbError, setThumbError] = useState(false);
-    const isImage = isImageCategory(fileItem.category);
+    const isImage = isImageType(fileItem.category, fileItem.extension);
     const showThumbnail = isImage && fileItem.url && !thumbError;
 
     return (
@@ -144,7 +133,7 @@ const DropdownFileItem = memo(
               onError={() => setThumbError(true)}
             />
           ) : (
-            getFileIcon(fileItem.extension)
+            getFileIcon(fileItem.extension, fileItem.name)
           )}
         </span>
         <span
@@ -159,67 +148,17 @@ const DropdownFileItem = memo(
 );
 
 /** 根据扩展名获取文件图标 */
-function getFileIcon(extension: string): React.ReactNode {
-  const ext = extension.toLowerCase();
-
-  // 图片
-  if (["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg"].includes(ext)) {
-    return <FileImage size={14} />;
-  }
-  // 代码
-  if (
-    [
-      "js",
-      "jsx",
-      "ts",
-      "tsx",
-      "py",
-      "java",
-      "c",
-      "cpp",
-      "go",
-      "rs",
-      "rb",
-      "php",
-      "vue",
-      "html",
-      "css",
-      "scss",
-      "less",
-    ].includes(ext)
-  ) {
-    return <FileCode size={14} />;
-  }
-  // PDF/文档
-  if (["pdf", "doc", "docx", "txt", "md"].includes(ext)) {
-    return <FileText size={14} />;
-  }
-  // 表格
-  if (["xls", "xlsx", "csv"].includes(ext)) {
-    return <FileSpreadsheet size={14} />;
-  }
-  // PPT
-  if (["ppt", "pptx"].includes(ext)) {
-    return <Presentation size={14} />;
-  }
-  // 压缩包
-  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
-    return <FileArchive size={14} />;
-  }
-  // 音频
-  if (["mp3", "wav", "aac", "flac", "ogg"].includes(ext)) {
-    return <FileAudio size={14} />;
-  }
-  // 视频
-  if (["mp4", "avi", "mov", "mkv", "webm"].includes(ext)) {
-    return <FileVideo size={14} />;
-  }
-  // JSON
-  if (["json", "jsonl"].includes(ext)) {
-    return <FileCode size={14} />;
-  }
-
-  return <File size={14} />;
+function getFileIcon(extension: string, fileName?: string): React.ReactNode {
+  const name = fileName || `file.${extension}`;
+  const iconUrl = getFileIconUrl(name, "");
+  return (
+    <img
+      src={iconUrl}
+      alt=""
+      className="wk-file-preview-header__file-icon"
+      draggable={false}
+    />
+  );
 }
 
 /**
@@ -237,12 +176,10 @@ const FilePreviewHeader: React.FC<FilePreviewHeaderProps> = ({
   onDownload,
   onOpenExternal,
   showOpenExternal = false,
-  onFullscreen,
   onReply,
   viewMode = "preview",
   onViewModeChange,
   showViewToggle = false,
-  typeTools,
 
   isFilePanelOpen = false,
   onFilePanelToggle,
@@ -408,12 +345,12 @@ const FilePreviewHeader: React.FC<FilePreviewHeaderProps> = ({
             onClick={handleClick}
             title={file.name}
           >
-            {getFileIcon(file.extension)}
+            {getFileIcon(file.extension, file.name)}
             <span className="wk-file-preview-header__dropdown-text">
               {file.name}
             </span>
             {hasFiles && (
-              <ChevronDown
+              <IconDropdown
                 size={12}
                 className={`wk-file-preview-header__dropdown-caret ${
                   isFilePanelOpen
@@ -461,42 +398,39 @@ const FilePreviewHeader: React.FC<FilePreviewHeaderProps> = ({
             </div>
           )}
         </div>
-
-        {/* 分隔符 */}
-        {showViewToggle && <span className="wk-file-preview-header__sep" />}
-
-        {/* 视图切换（预览/源码） */}
-        {showViewToggle && onViewModeChange && (
-          <div className="wk-file-preview-header__view-toggle">
-            <button
-              className={`wk-file-preview-header__view-toggle-btn ${
-                viewMode === "preview"
-                  ? "wk-file-preview-header__view-toggle-btn--active"
-                  : ""
-              }`}
-              onClick={() => onViewModeChange("preview")}
-            >
-              预览
-            </button>
-            <button
-              className={`wk-file-preview-header__view-toggle-btn ${
-                viewMode === "source"
-                  ? "wk-file-preview-header__view-toggle-btn--active"
-                  : ""
-              }`}
-              onClick={() => onViewModeChange("source")}
-            >
-              源码
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* 中间：类型相关工具 */}
-      <div className="wk-file-preview-header__mid">{typeTools}</div>
-
-      {/* 右侧：通用操作按钮 */}
+      {/* 右侧：操作按钮区域 */}
       <div className="wk-file-preview-header__actions">
+        {/* 视图切换（预览/源码）*/}
+        {showViewToggle && onViewModeChange && (
+          <>
+            <div className="wk-file-preview-header__view-toggle">
+              <button
+                className={`wk-file-preview-header__view-toggle-btn ${
+                  viewMode === "preview"
+                    ? "wk-file-preview-header__view-toggle-btn--active"
+                    : ""
+                }`}
+                onClick={() => onViewModeChange("preview")}
+              >
+                预览
+              </button>
+              <button
+                className={`wk-file-preview-header__view-toggle-btn ${
+                  viewMode === "source"
+                    ? "wk-file-preview-header__view-toggle-btn--active"
+                    : ""
+                }`}
+                onClick={() => onViewModeChange("source")}
+              >
+                源码
+              </button>
+            </div>
+            <span className="wk-file-preview-header__sep" />
+          </>
+        )}
+
         {/* 目录按钮（仅 Markdown 预览模式且 h2 ≥ 3 时显示） */}
         {showTocButton && onTocToggle && (
           <button
@@ -506,29 +440,18 @@ const FilePreviewHeader: React.FC<FilePreviewHeaderProps> = ({
             onClick={onTocToggle}
             title={isTocOpen ? "收起目录" : "展开目录"}
           >
-            <List size={16} />
+            <List size={12} />
           </button>
         )}
 
-        {/* 全屏 */}
-        {onFullscreen && (
-          <button
-            className="wk-file-preview-header__btn"
-            onClick={onFullscreen}
-            title="全屏"
-          >
-            <Maximize2 size={16} />
-          </button>
-        )}
-
-        {/* 新标签打开（仅 HTML 文件显示） */}
+        {/* 新标签打开 */}
         {showOpenExternal && (
           <button
             className="wk-file-preview-header__btn"
             onClick={handleOpenExternal}
             title="新标签打开"
           >
-            <ExternalLink size={16} />
+            <IconLaunch />
           </button>
         )}
 
@@ -539,7 +462,7 @@ const FilePreviewHeader: React.FC<FilePreviewHeaderProps> = ({
             onClick={onReply}
             title="回复"
           >
-            <Reply size={16} />
+            <IconMessage />
           </button>
         )}
 
@@ -549,8 +472,11 @@ const FilePreviewHeader: React.FC<FilePreviewHeaderProps> = ({
           onClick={handleDownload}
           title="下载"
         >
-          <Download size={16} />
+          <IconDownload />
         </button>
+
+        {/* 分隔线 */}
+        <span className="wk-file-preview-header__sep" />
 
         {/* 关闭 */}
         <button
@@ -558,7 +484,7 @@ const FilePreviewHeader: React.FC<FilePreviewHeaderProps> = ({
           onClick={onClose}
           title="关闭"
         >
-          <X size={18} />
+          <IconClose />
         </button>
       </div>
     </div>

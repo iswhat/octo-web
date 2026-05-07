@@ -12,6 +12,9 @@ import pdfIcon from "../../assets/files/pdf.svg";
 import videoIcon from "../../assets/files/video.svg";
 import zipIcon from "../../assets/files/zip.svg";
 import videoPlayIcon from "../../assets/files/video2.svg";
+import htmlIcon from "../../assets/files/html.svg";
+import mdIcon from "../../assets/files/md.svg";
+import txtIcon from "../../assets/files/txt.svg";
 
 // 导出图标供外部使用
 export {
@@ -23,6 +26,9 @@ export {
   videoIcon,
   zipIcon,
   videoPlayIcon,
+  htmlIcon,
+  mdIcon,
+  txtIcon,
 };
 
 export interface AttachmentAttributes {
@@ -73,6 +79,15 @@ export function getFileIcon(name: string, type: string): string {
   }
   if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
     return zipIcon;
+  }
+  if (["html", "htm"].includes(ext)) {
+    return htmlIcon;
+  }
+  if (ext === "md") {
+    return mdIcon;
+  }
+  if (ext === "txt") {
+    return txtIcon;
   }
 
   return defaultIcon;

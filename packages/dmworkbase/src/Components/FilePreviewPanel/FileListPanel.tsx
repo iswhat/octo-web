@@ -1,19 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  File,
-  FileImage,
-  FileCode,
-  FileText,
-  FileSpreadsheet,
-  Presentation,
-  FileArchive,
-  FileAudio,
-  FileVideo,
-  X,
-  FolderOpen,
-} from "lucide-react";
+import { X, FolderOpen } from "lucide-react";
 import { ConversationFile } from "./FilePreviewHeader";
 import { formatFileSize } from "./config";
+import { getFileIcon as getFileIconUrl } from "../MessageInput/AttachmentNode";
 import "./FileListPanel.css";
 
 export interface FileListPanelProps {
@@ -37,63 +26,26 @@ export interface FileListPanelProps {
   initialLoading?: boolean;
 }
 
-/** 判断是否为图片类型 */
-function isImageCategory(category?: string): boolean {
-  return category === "image";
+/** 判断是否为图片类型（同时支持 category 和扩展名判断） */
+function isImageType(category?: string, extension?: string): boolean {
+  if (category === "image") return true;
+  if (!extension) return false;
+  const ext = extension.toLowerCase();
+  return ["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg"].includes(ext);
 }
 
 /** 根据扩展名获取文件图标 */
-function getFileIcon(extension: string): React.ReactNode {
-  const ext = extension.toLowerCase();
-
-  if (["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg"].includes(ext)) {
-    return <FileImage size={16} />;
-  }
-  if (
-    [
-      "js",
-      "jsx",
-      "ts",
-      "tsx",
-      "py",
-      "java",
-      "c",
-      "cpp",
-      "go",
-      "rs",
-      "rb",
-      "php",
-      "vue",
-      "html",
-      "css",
-      "scss",
-      "less",
-      "json",
-      "jsonl",
-    ].includes(ext)
-  ) {
-    return <FileCode size={16} />;
-  }
-  if (["pdf", "doc", "docx", "txt", "md"].includes(ext)) {
-    return <FileText size={16} />;
-  }
-  if (["xls", "xlsx", "csv"].includes(ext)) {
-    return <FileSpreadsheet size={16} />;
-  }
-  if (["ppt", "pptx"].includes(ext)) {
-    return <Presentation size={16} />;
-  }
-  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
-    return <FileArchive size={16} />;
-  }
-  if (["mp3", "wav", "aac", "flac", "ogg"].includes(ext)) {
-    return <FileAudio size={16} />;
-  }
-  if (["mp4", "avi", "mov", "mkv", "webm"].includes(ext)) {
-    return <FileVideo size={16} />;
-  }
-
-  return <File size={16} />;
+function getFileIcon(extension: string, fileName?: string): React.ReactNode {
+  const name = fileName || `file.${extension}`;
+  const iconUrl = getFileIconUrl(name, "");
+  return (
+    <img
+      src={iconUrl}
+      alt=""
+      className="wk-file-list-panel__item-file-icon"
+      draggable={false}
+    />
+  );
 }
 
 /** 格式化时间戳为相对时间或日期 */
@@ -129,7 +81,7 @@ const FileListItem: React.FC<{
   onSelect: () => void;
 }> = ({ file, isActive, onSelect }) => {
   const [thumbError, setThumbError] = useState(false);
-  const isImage = isImageCategory(file.category);
+  const isImage = isImageType(file.category, file.extension);
   // 图片类型直接用 url 作为缩略图
   const showThumbnail = isImage && file.url && !thumbError;
 
@@ -155,7 +107,7 @@ const FileListItem: React.FC<{
             onError={() => setThumbError(true)}
           />
         ) : (
-          getFileIcon(file.extension)
+          getFileIcon(file.extension, file.name)
         )}
       </span>
 
@@ -168,8 +120,8 @@ const FileListItem: React.FC<{
               {file.senderName}
             </span>
           )}
-          {/* 图片类型不展示大小 */}
-          {file.size && !isImage && (
+          {/* 图片类型不展示大小，且 size 必须大于 0 */}
+          {!isImage && file.size != null && file.size > 0 && (
             <span className="wk-file-list-panel__item-size">
               {formatFileSize(file.size)}
             </span>

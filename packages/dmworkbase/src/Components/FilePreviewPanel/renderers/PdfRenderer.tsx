@@ -5,6 +5,7 @@ import {
   PageChangeEvent,
   DocumentLoadEvent,
   SpecialZoomLevel,
+  ZoomEvent,
 } from "@react-pdf-viewer/core";
 import { thumbnailPlugin } from "@react-pdf-viewer/thumbnail";
 import { bookmarkPlugin } from "@react-pdf-viewer/bookmark";
@@ -14,16 +15,9 @@ import {
   RenderZoomOutProps,
 } from "@react-pdf-viewer/zoom";
 import { pageNavigationPlugin } from "@react-pdf-viewer/page-navigation";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ZoomIn,
-  ZoomOut,
-  PanelLeftClose,
-  PanelLeft,
-  List,
-  Image,
-} from "lucide-react";
+import { List, Image } from "lucide-react";
+import { Tooltip } from "@douyinfe/semi-ui";
+import { IconMenuFold, IconMinus, IconPlus } from "../icons";
 import { BaseRendererProps } from "../types";
 import { isFileTooLarge } from "../config";
 import FileTooLarge from "./FileTooLarge";
@@ -89,6 +83,22 @@ const PdfRenderer: React.FC<PdfRendererProps> = ({ file, onError }) => {
   // 容器 ref，用于键盘事件监听
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 缩放变化回调
+  const handleZoom = useCallback((e: ZoomEvent) => {
+    setCurrentScale(e.scale);
+    // 如果是数值缩放，更新 zoomMode
+    const scaleStr = e.scale.toFixed(2);
+    const matchedOption = ZOOM_OPTIONS.find(
+      (opt) => parseFloat(opt.value) === parseFloat(scaleStr)
+    );
+    if (matchedOption) {
+      setCurrentZoomMode(matchedOption.value);
+    } else {
+      // 不是预设值，清除特殊模式
+      setCurrentZoomMode("");
+    }
+  }, []);
+
   // 使用 useRef 确保插件实例在组件生命周期内稳定
   // 不使用 useMemo 是因为 @react-pdf-viewer 插件在 HMR/Strict Mode 下可能有兼容性问题
   const thumbnailPluginRef = useRef(thumbnailPlugin());
@@ -105,8 +115,7 @@ const PdfRenderer: React.FC<PdfRendererProps> = ({ file, onError }) => {
   const { Thumbnails } = thumbnailPluginInstance;
   const { Bookmarks } = bookmarkPluginInstance;
   const { ZoomIn: ZoomInButton, ZoomOut: ZoomOutButton } = zoomPluginInstance;
-  const { GoToNextPage, GoToPreviousPage, jumpToPage } =
-    pageNavigationPluginInstance;
+  const { jumpToPage } = pageNavigationPluginInstance;
 
   // 插件数组 - 使用 useRef 确保稳定引用
   const pluginsRef = useRef([
@@ -286,108 +295,87 @@ const PdfRenderer: React.FC<PdfRendererProps> = ({ file, onError }) => {
       >
         {/* 工具栏 */}
         <div className="wk-file-preview-pdf-renderer__toolbar">
-          {/* 侧边栏切换按钮 */}
-          <button
-            className="wk-file-preview-pdf-renderer__toolbar-btn"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            title={isSidebarOpen ? "隐藏侧边栏" : "显示侧边栏"}
+          {/* 左侧：侧边栏切换按钮 */}
+          <Tooltip
+            content={isSidebarOpen ? "隐藏侧边栏" : "显示侧边栏"}
+            position="top"
+            showArrow
           >
-            {isSidebarOpen ? (
-              <PanelLeftClose size={18} />
-            ) : (
-              <PanelLeft size={18} />
-            )}
-          </button>
+            <button
+              className="wk-file-preview-pdf-renderer__toolbar-sidebar-btn"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
+              <IconMenuFold />
+            </button>
+          </Tooltip>
 
           <div className="wk-file-preview-pdf-renderer__toolbar-divider" />
 
-          {/* 缩放控制 */}
-          <ZoomOutButton>
-            {(props: RenderZoomOutProps) => (
+          {/* 中间区域：页码导航 + 缩放控制 */}
+          <div className="wk-file-preview-pdf-renderer__toolbar-center">
+            {/* 页码导航 */}
+            <div className="wk-file-preview-pdf-renderer__page-nav">
+              <span className="wk-file-preview-pdf-renderer__page-label">
+                第
+              </span>
+              <input
+                type="text"
+                className="wk-file-preview-pdf-renderer__page-input"
+                value={pageInputValue}
+                onChange={handlePageInputChange}
+                onKeyDown={handlePageInputKeyDown}
+                onBlur={handlePageInputBlur}
+                title="跳转到页面"
+              />
+              <span className="wk-file-preview-pdf-renderer__page-label">
+                /{totalPages || "-"}页
+              </span>
+            </div>
+
+            {/* 缩放控制组 */}
+            <div className="wk-file-preview-pdf-renderer__zoom-controls">
+              {/* 缩放胶囊按钮 */}
+              <div className="wk-file-preview-pdf-renderer__zoom-capsule">
+                <ZoomOutButton>
+                  {(props: RenderZoomOutProps) => (
+                    <button
+                      className="wk-file-preview-pdf-renderer__zoom-btn"
+                      onClick={props.onClick}
+                      title="缩小"
+                    >
+                      <IconMinus />
+                    </button>
+                  )}
+                </ZoomOutButton>
+                <span className="wk-file-preview-pdf-renderer__zoom-value">
+                  {Math.round(currentScale * 100)}%
+                </span>
+                <ZoomInButton>
+                  {(props: RenderZoomInProps) => (
+                    <button
+                      className="wk-file-preview-pdf-renderer__zoom-btn"
+                      onClick={props.onClick}
+                      title="放大"
+                    >
+                      <IconPlus />
+                    </button>
+                  )}
+                </ZoomInButton>
+              </div>
+
+              {/* 适应宽度按钮 */}
               <button
-                className="wk-file-preview-pdf-renderer__toolbar-btn"
-                onClick={props.onClick}
-                title="缩小"
-              >
-                <ZoomOut size={18} />
-              </button>
-            )}
-          </ZoomOutButton>
-
-          <ZoomInButton>
-            {(props: RenderZoomInProps) => (
-              <button
-                className="wk-file-preview-pdf-renderer__toolbar-btn"
-                onClick={props.onClick}
-                title="放大"
-              >
-                <ZoomIn size={18} />
-              </button>
-            )}
-          </ZoomInButton>
-
-          <select
-            className="wk-file-preview-pdf-renderer__zoom-select"
-            value={currentZoomMode}
-            onChange={(e) => handleZoomChange(e.target.value)}
-          >
-            {ZOOM_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          <div className="wk-file-preview-pdf-renderer__toolbar-divider" />
-
-          {/* 页面导航 */}
-          <GoToPreviousPage>
-            {(props) => (
-              <button
-                className={`wk-file-preview-pdf-renderer__toolbar-btn ${
-                  props.isDisabled
-                    ? "wk-file-preview-pdf-renderer__toolbar-btn--disabled"
+                className={`wk-file-preview-pdf-renderer__fit-btn ${
+                  currentZoomMode === "PageWidth"
+                    ? "wk-file-preview-pdf-renderer__fit-btn--active"
                     : ""
                 }`}
-                onClick={props.isDisabled ? undefined : props.onClick}
-                title="上一页 (PageUp)"
-                disabled={props.isDisabled}
+                onClick={() => handleZoomChange("PageWidth")}
+                title="适应宽度"
               >
-                <ChevronLeft size={18} />
+                适应宽度
               </button>
-            )}
-          </GoToPreviousPage>
-
-          <GoToNextPage>
-            {(props) => (
-              <button
-                className={`wk-file-preview-pdf-renderer__toolbar-btn ${
-                  props.isDisabled
-                    ? "wk-file-preview-pdf-renderer__toolbar-btn--disabled"
-                    : ""
-                }`}
-                onClick={props.isDisabled ? undefined : props.onClick}
-                title="下一页 (PageDown)"
-                disabled={props.isDisabled}
-              >
-                <ChevronRight size={18} />
-              </button>
-            )}
-          </GoToNextPage>
-
-          <div className="wk-file-preview-pdf-renderer__page-nav">
-            <input
-              type="text"
-              className="wk-file-preview-pdf-renderer__page-input"
-              value={pageInputValue}
-              onChange={handlePageInputChange}
-              onKeyDown={handlePageInputKeyDown}
-              onBlur={handlePageInputBlur}
-              title="跳转到页面"
-            />
-            <span className="wk-file-preview-pdf-renderer__page-total">
-              / {totalPages || "-"}
-            </span>
+            </div>
           </div>
         </div>
 
@@ -463,6 +451,7 @@ const PdfRenderer: React.FC<PdfRendererProps> = ({ file, onError }) => {
               plugins={plugins}
               onDocumentLoad={handleDocumentLoad}
               onPageChange={handlePageChange}
+              onZoom={handleZoom}
               defaultScale={SpecialZoomLevel.PageWidth}
               characterMap={{
                 url: "/pdfjs/cmaps/",
