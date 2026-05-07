@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { BaseRendererProps } from "../types";
-import { isFileTooLarge, FILE_SIZE_THRESHOLD } from "../config";
+import { isFileTooLarge, getRenderMode, formatFileSize } from "../config";
 import { useFileContent } from "../hooks/useFileContent";
 import { RendererState } from "./RendererState";
 import FileTooLarge from "./FileTooLarge";
@@ -173,9 +173,20 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({
 
   // 源码模式
   if (viewMode === "source") {
-    // 根据内容大小决定是否使用语法高亮
+    // 根据内容大小决定渲染模式
     const contentSize = new Blob([content]).size;
-    const useHighlight = contentSize <= FILE_SIZE_THRESHOLD.HIGHLIGHT;
+    const renderMode = getRenderMode(contentSize);
+
+    // 源码超过 500KB，不预览
+    if (renderMode === "too-large") {
+      return (
+        <FileTooLarge
+          fileName={file.name}
+          fileSize={contentSize}
+          fileUrl={file.url}
+        />
+      );
+    }
 
     return (
       <div className="wk-file-preview-html-renderer wk-file-preview-html-renderer--source">
@@ -195,7 +206,7 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({
           </div>
         )}
         <div className="wk-file-preview-html-renderer__source-container wk-code-highlight-container">
-          {useHighlight ? (
+          {renderMode === "highlight" ? (
             <SyntaxHighlighter
               language="html"
               useInlineStyles={false}
@@ -212,9 +223,15 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({
             </SyntaxHighlighter>
           ) : (
             /* 大文件使用纯文本渲染，避免卡死 */
-            <pre className="wk-file-preview-html-renderer__plain-source">
-              <code>{content}</code>
-            </pre>
+            <>
+              <div className="wk-file-preview-html-renderer__plain-hint">
+                文件较大（{formatFileSize(contentSize)}
+                ），已禁用语法高亮以提升性能
+              </div>
+              <pre className="wk-file-preview-html-renderer__plain-source">
+                <code>{content}</code>
+              </pre>
+            </>
           )}
         </div>
       </div>
