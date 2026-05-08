@@ -107,12 +107,8 @@ export interface FileContentResponse {
 }
 
 class AgentCardService {
-  private baseURL: string;
-
-  constructor() {
-    // 从环境变量读取 agent-card-server 地址
-    this.baseURL = import.meta.env.VITE_AGENT_CARD_BASE_URL || '';
-  }
+  // AgentCardService 使用 APIClient.shared，路径自动继承 axios.defaults.baseURL (/api/v1/)
+  // 所以接口路径只需要写相对路径，如 /agent-cards/:botId
 
   /**
    * 获取 Agent Card（包含概览、Session、文件列表）
@@ -121,7 +117,7 @@ class AgentCardService {
    */
   async getAgentCard(botId: string): Promise<AgentCardResponse> {
     const response = await APIClient.shared.get<{ code: number; message: string; data: AgentCardResponse }>(
-      `${this.baseURL}/api/v1/agent-cards/${botId}`
+      `/agent-cards/${botId}`
     );
 
     if (response.code !== 0) {
@@ -139,7 +135,7 @@ class AgentCardService {
    */
   async getFileContent(botId: string, fileName: string): Promise<FileContent> {
     const response = await APIClient.shared.get<{ code: number; message: string; data: FileContentResponse }>(
-      `${this.baseURL}/api/v1/agent-cards/${botId}/files/${fileName}`
+      `/agent-cards/${botId}/files/${fileName}`
     );
 
     if (response.code !== 0) {
