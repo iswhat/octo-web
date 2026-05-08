@@ -343,17 +343,42 @@ const MessageInput: React.FC<MessageInputProps> = (props) => {
   // 顶部附件区的附件列表（非图片文件 + 上传的图片）
   const [topAttachments, setTopAttachments] = useState<TopAttachmentItem[]>([]);
 
-  // 动态生成 placeholder
-  const placeholder = useMemo(() => {
+  // 动态生成 placeholder（channelInfo 异步加载后自动更新）
+  const [placeholder, setPlaceholder] = useState(() => {
     const channel = props.context.channel();
     const channelInfo = WKSDK.shared().channelManager.getChannelInfo(channel);
-    const name = channelInfo?.title || channelInfo?.name || "";
-
+    const name = channelInfo?.title || "";
     const altKey = /Mac|iPhone|iPad/i.test(navigator.userAgent) ? '⌥' : 'Alt';
     if (channel.channelType === ChannelTypePerson) {
       return name ? `对 ${name} 发送消息` : "发送消息";
     } else {
       return name ? `在 ${name} 中回复...  ${altKey}+↵ 创建任务` : `输入消息...  ${altKey}+↵ 创建任务`;
+    }
+  });
+
+  useEffect(() => {
+    const channel = props.context.channel();
+    const channelInfo = WKSDK.shared().channelManager.getChannelInfo(channel);
+    const altKey = /Mac|iPhone|iPad/i.test(navigator.userAgent) ? '⌥' : 'Alt';
+
+    const updatePlaceholder = (name: string) => {
+      if (channel.channelType === ChannelTypePerson) {
+        setPlaceholder(name ? `对 ${name} 发送消息` : "发送消息");
+      } else {
+        setPlaceholder(name ? `在 ${name} 中回复...  ${altKey}+↵ 创建任务` : `输入消息...  ${altKey}+↵ 创建任务`);
+      }
+    };
+
+    if (channelInfo) {
+      updatePlaceholder(channelInfo.title || "");
+    } else {
+      // channelInfo 不在本地缓存中（陌生人/首次打开），主动 fetch
+      WKSDK.shared().channelManager.fetchChannelInfo(channel).then(() => {
+        const info = WKSDK.shared().channelManager.getChannelInfo(channel);
+        updatePlaceholder(info?.title || "");
+      }).catch(() => {
+        // fetch 失败保持默认 placeholder
+      });
     }
   }, [props.context]);
 
