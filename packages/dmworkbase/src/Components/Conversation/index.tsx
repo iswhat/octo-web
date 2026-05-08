@@ -345,11 +345,11 @@ export class Conversation
     };
     WKSDK.shared().taskManager.addListener(taskListener);
 
-    let pendingAck: any = null;
+    let pendingAcks: any[] = [];
     const ackListener = (ackPacket: any) => {
       if (clientSeq === null) {
         // ack 在 sendMessage await 期间到达，暂存等 clientSeq 赋值后补查
-        pendingAck = ackPacket;
+        pendingAcks.push(ackPacket);
         return;
       }
       if (ackPacket.clientSeq === clientSeq) {
@@ -365,7 +365,7 @@ export class Conversation
     // sendMessage 返回后主动检查
     if (!settled) {
       // 检查暂存的 ack（ack 在 clientSeq 赋值前到达的情况）
-      if (pendingAck && pendingAck.clientSeq === clientSeq) {
+      if (pendingAcks.some(p => p.clientSeq === clientSeq)) {
         done();
       }
       // 检查 task 是否已 fail
@@ -383,7 +383,7 @@ export class Conversation
         }
       }
       // 最终 fallback：检查 message.status（VM 可能已经处理了 ack）
-      if (!settled && message.status === MessageStatus.Normal) {
+      if (!settled && (message.status === MessageStatus.Normal || message.status === MessageStatus.Fail)) {
         done();
       }
     }
@@ -424,10 +424,10 @@ export class Conversation
     const timer = setTimeout(done, TIMEOUT);
 
     // 在 sendMessage 之前注册 listener，避免快速 ack 竞态
-    let pendingAck: any = null;
+    let pendingAcks: any[] = [];
     const statusListener = (ackPacket: any) => {
       if (clientSeq === null) {
-        pendingAck = ackPacket;
+        pendingAcks.push(ackPacket);
         return;
       }
       if (ackPacket.clientSeq === clientSeq) {
@@ -441,10 +441,10 @@ export class Conversation
 
     // fallback：检查暂存的 ack 或已处理的 status
     if (!settled) {
-      if (pendingAck && pendingAck.clientSeq === clientSeq) {
+      if (pendingAcks.some(p => p.clientSeq === clientSeq)) {
         done();
       }
-      if (!settled && message.status === MessageStatus.Normal) {
+      if (!settled && (message.status === MessageStatus.Normal || message.status === MessageStatus.Fail)) {
         done();
       }
     }
