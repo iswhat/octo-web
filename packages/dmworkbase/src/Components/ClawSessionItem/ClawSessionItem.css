@@ -138,12 +138,22 @@
   color: #2563eb;
 }
 
-/* Session Key */
+/* Session Key（在 body 中显示） */
 .wk-session-key {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
   color: rgba(0, 0, 0, 0.75);
   font-weight: 600;
+}
+
+/* 对话方（在 head 中显示） */
+.wk-session-party {
+  font-size: 12.5px;
+  color: rgba(0, 0, 0, 0.75);
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* AC-7: 展开/收起箭头 */

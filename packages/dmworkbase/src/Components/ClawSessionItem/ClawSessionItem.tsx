@@ -40,7 +40,7 @@ export interface ClawSessionItemProps {
  * AC-8: 上下文进度条 > 70% 显示警告色
  */
 export default function ClawSessionItem({ session }: ClawSessionItemProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true); // 默认折叠
 
   const {
     key,
@@ -99,9 +99,9 @@ export default function ClawSessionItem({ session }: ClawSessionItemProps) {
           {channel}
         </span>
 
-        {/* Session Key */}
-        <span className="wk-session-key" data-testid="claw-session-key">
-          {key}
+        {/* 对话方 */}
+        <span className="wk-session-party" data-testid="claw-session-party-head">
+          {party}
         </span>
 
         {/* 展开/收起箭头 */}
@@ -125,14 +125,14 @@ export default function ClawSessionItem({ session }: ClawSessionItemProps) {
       {!collapsed && (
         <>
           <div className="wk-session-body" data-testid="claw-session-body">
-            {/* 对话方 */}
-            <div className="wk-session-field">
-              <span className="wk-session-field__label">对话方</span>
+            {/* Session Key（占满 3 列） */}
+            <div className="wk-session-field" style={{ gridColumn: "span 3" }}>
+              <span className="wk-session-field__label">Session Key</span>
               <span
-                className="wk-session-field__value wk-session-field__value--normal"
-                data-testid="claw-session-party"
+                className="wk-session-field__value"
+                data-testid="claw-session-key"
               >
-                {party}
+                {key}
               </span>
             </div>
 
