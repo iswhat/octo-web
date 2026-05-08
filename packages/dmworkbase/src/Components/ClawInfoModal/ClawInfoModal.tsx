@@ -308,7 +308,6 @@ export default function ClawInfoModal({ botId, visible, onClose }: ClawInfoModal
                 memory_retention_note: data.runtime_info.memory_retention_note || "—",
               }}
               loading={loading}
-              onRecheck={loadAgentCard}
             />
           )}
           {activeTab === "files" && (
