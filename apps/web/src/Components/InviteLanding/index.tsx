@@ -21,12 +21,22 @@ interface InviteLandingState {
     info?: InviteInfo;
     error?: string;
     joining: boolean;
+    /**
+     * YUJ-372 Phase 2 / dmworkim#1319: 后端 4 个入群入口
+     * (authorize / detail / scanjoin / handleJoinGroup) 在调用者
+     * `GetUserDefaultSpaceID(uid) == ""` 时返回
+     * `{status: "need_space", msg: "请先加入一个 Space 后再入群"}`。
+     * 前端识别后不渲染加入按钮，改渲染「请先加入一个 Space」引导 + CTA。
+     * 本组件也覆盖 Space 邀请路径的防御性处理，契约与 iOS / Android 对齐。
+     */
+    needSpace: boolean;
 }
 
 export default class InviteLanding extends Component<InviteLandingProps, InviteLandingState> {
     state: InviteLandingState = {
         loading: true,
         joining: false,
+        needSpace: false,
     };
 
     private isUnmounted = false;
@@ -59,16 +69,50 @@ export default class InviteLanding extends Component<InviteLandingProps, InviteL
     async loadInviteInfo() {
         try {
             const resp = await fetch(`${WKApp.apiClient.config.apiURL}space/invite/${this.props.inviteCode}`);
-            if (!resp.ok) {
-                const err = await resp.json().catch(() => ({}));
-                this.setState({ loading: false, error: err.msg || "邀请码无效" });
+            const body = await resp.json().catch(() => ({} as any));
+            // YUJ-372 Phase 2 / dmworkim#1319: detail 入口可能返回 need_space
+            // 状态（后端契约：{status: "need_space", msg: "..."}）。识别到时
+            // 持久化邀请码并切到 need_space 分支，避免渲染入群/入 Space 按钮。
+            if (this.isNeedSpaceResponse(resp.status, body)) {
+                this.enterNeedSpace();
                 return;
             }
-            const info = await resp.json();
-            this.setState({ loading: false, info });
+            if (!resp.ok) {
+                this.setState({ loading: false, error: body?.msg || "邀请码无效" });
+                return;
+            }
+            this.setState({ loading: false, info: body });
         } catch (e) {
             this.setState({ loading: false, error: "网络错误" });
         }
+    }
+
+    /**
+     * YUJ-372 Phase 2 / dmworkim#1319: 识别后端 need_space 契约。
+     * 后端四个入群入口 (authorize / detail / scanjoin / handleJoinGroup) 在
+     * 调用者无默认 Space 时返回 {status: "need_space", msg: "..."}。该契约
+     * 同时被本组件用于防御性兼容 Space 邀请路径（当后端同步扩展时无需改前端）。
+     *
+     * 注意：不能用 `resp.ok` 前置过滤——后端既可能用 200 返回该结构，也可能
+     * 用非 2xx（如 403）包装；因此只凭 body.status 判定。
+     */
+    private isNeedSpaceResponse(_status: number, body: any): boolean {
+        return !!body && body.status === "need_space";
+    }
+
+    /**
+     * 切换到 need_space 渲染分支：
+     * - 保留 inviteCode 到 localStorage（pendingInviteCode），Space 加完后
+     *   Layout.onLogin 自动重试 space/join，形成「加 Space → 自动入群」闭环。
+     * - 不再渲染「加入 Space / 加入群聊」按钮，避免误点。
+     */
+    private enterNeedSpace() {
+        try {
+            localStorage.setItem("pendingInviteCode", this.props.inviteCode);
+        } catch (_e) {
+            // localStorage 被禁用时降级，不阻塞渲染
+        }
+        this.safeSetState({ loading: false, joining: false, needSpace: true });
     }
 
     /**
@@ -166,13 +210,19 @@ export default class InviteLanding extends Component<InviteLandingProps, InviteL
                 headers: { 'Content-Type': 'application/json', token },
                 body: JSON.stringify({ invite_code: this.props.inviteCode }),
             });
+            const result = await resp.json().catch(() => ({} as any));
+            // YUJ-372 Phase 2 / dmworkim#1319: authorize / scanjoin 亦可能
+            // 同步返回 need_space。与 detail 分支走同一 enterNeedSpace()，
+            // 保证 CTA + pendingInviteCode 自动重试语义一致。
+            if (this.isNeedSpaceResponse(resp.status, result)) {
+                this.enterNeedSpace();
+                return;
+            }
             if (!resp.ok) {
-                const err = await resp.json().catch(() => ({}));
-                const error: any = new Error(err.msg || "加入失败");
+                const error: any = new Error(result?.msg || "加入失败");
                 error.status = resp.status;
                 throw error;
             }
-            const result = await resp.json().catch(() => ({}));
             const status: JoinSpaceStatus | undefined = result?.status;
 
             if (status === "NEED_APPROVAL" || status === "PENDING") {
@@ -238,13 +288,70 @@ export default class InviteLanding extends Component<InviteLandingProps, InviteL
         window.location.href = `${window.location.origin}${basePath}/?invite=${encodeURIComponent(this.props.inviteCode)}&action=login`;
     }
 
+    /**
+     * YUJ-372 Phase 2 / dmworkim#1319: 「去输入邀请码」CTA 点击。
+     *
+     * 触发 `WKApp.endpoints.onNeedJoinSpace()` 会让 Layout 弹出 JoinSpacePage
+     * 全屏覆盖（见 `apps/web/src/Layout/index.tsx`）。JoinSpacePage 成功加入
+     * Space 后 Layout.onSuccess 会调用 `WKApp.endpoints.callOnLogin()`，
+     * 从而复用 `onLogin` 里既有的 `pendingInviteCode` 自动入 Space 分支
+     * 形成「加 Space → 自动重试入群/入 Space」闭环。因此这里必须确保
+     * pendingInviteCode 已写入（enterNeedSpace 已处理，此处再兜底写一次）。
+     */
+    handleGoJoinSpace() {
+        try {
+            localStorage.setItem("pendingInviteCode", this.props.inviteCode);
+        } catch (_e) {
+            // ignore persistence failure; onNeedJoinSpace 后用户仍可手工粘贴邀请码
+        }
+        try {
+            WKApp.endpoints.onNeedJoinSpace();
+        } catch (e) {
+            console.warn("onNeedJoinSpace error suppressed:", e);
+        }
+    }
+
     render() {
-        const { loading, info, error, joining } = this.state;
+        const { loading, info, error, joining, needSpace } = this.state;
         const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a'];
         const isLoggedIn = WKApp.shared.isLogined();
 
         if (loading) {
             return <div className="invite-landing"><Spin size="large" /></div>;
+        }
+
+        // YUJ-372 Phase 2 / dmworkim#1319: need_space 分支
+        //
+        // 后端 4 个入群入口 (authorize / detail / scanjoin / handleJoinGroup)
+        // 在调用者无默认 Space 时返回 {status: "need_space"}。此处是该契约在
+        // Web SPA 内的识别点：不渲染「加入群聊 / 加入 Space」按钮（否则点击
+        // 必然再次命中同一个 need_space 返回，UX 卡死），改渲染显式引导 +
+        // 「去输入邀请码」CTA，点击后触发 onNeedJoinSpace 弹出 JoinSpacePage
+        // 全屏覆盖。JoinSpacePage 成功加入 Space 后由 Layout.onSuccess 回调
+        // 统一 callOnLogin → pendingInviteCode 分支自动重试入群/入 Space。
+        //
+        // 注意：优先于 error / !info 分支渲染——need_space 响应可能携带
+        // 非 2xx 状态码，此时 info 为空，需要直接进 need_space 分支。
+        if (needSpace) {
+            return (
+                <div className="invite-landing">
+                    <div className="invite-landing-card" data-testid="invite-landing-need-space">
+                        <div className="invite-landing-icon" style={{ backgroundColor: colors[0] }}>
+                            🏠
+                        </div>
+                        <div className="invite-landing-name">请先加入一个 Space</div>
+                        <div className="invite-landing-hint">
+                            完成后将自动继续加入当前群聊
+                        </div>
+                        <Button type="primary" size="large"
+                            className="invite-landing-btn"
+                            data-testid="invite-landing-need-space-cta"
+                            onClick={() => this.handleGoJoinSpace()}>
+                            去输入邀请码
+                        </Button>
+                    </div>
+                </div>
+            );
         }
 
         if (error || !info) {
