@@ -26,7 +26,7 @@ interface VoiceInputIndicatorProps {
   getSelectedText?: () => string | undefined;
   /** 获取当前选区的 ProseMirror 位置 */
   getSelectionRange?: () => SelectionRange | undefined;
-  getChatContext?: () => ChatContextResult;
+  getChatContext?: () => ChatContextResult | Promise<ChatContextResult>;
 }
 
 // Floating indicator positioning constants

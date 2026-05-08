@@ -1852,8 +1852,9 @@ export class Conversation
                       }}
                       toolbar={this.chatToolbarUI()}
                       context={this}
-                      getChatContext={() => {
+                      getChatContext={async () => {
                         const { channel } = this.props;
+                        await this.vm.ensureSubscribersLoaded();
                         return buildChatContext({
                           messages: this.vm.messagesOfOrigin || [],
                           subscribers: this.vm.subscribers,

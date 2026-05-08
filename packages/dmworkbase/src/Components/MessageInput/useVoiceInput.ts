@@ -13,7 +13,7 @@ export interface UseVoiceInputOptions {
   onTranscribed?: (text: string) => void;
   onError?: (error: Error) => void;
   onRecordingFailed?: () => void;
-  getChatContext?: () => ChatContextResult;
+  getChatContext?: () => ChatContextResult | Promise<ChatContextResult>;
   mode?: VoiceMode;
 }
 
@@ -236,7 +236,7 @@ export default function useVoiceInput(
           }
 
           // 群成员名 + 聊天消息上下文
-          const chatCtxResult = getChatContextRef.current?.() ?? {};
+          const chatCtxResult = (await getChatContextRef.current?.()) ?? {};
           const memberContext = chatCtxResult.memberContext;
           const chatContext = chatCtxResult.chatContext;
 

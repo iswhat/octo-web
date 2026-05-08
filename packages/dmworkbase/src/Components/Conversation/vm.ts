@@ -121,6 +121,10 @@ export default class ConversationVM extends ProviderListener {
     private _currentHandlerType: number = 0 // 当前处理类型
     onFirstMessagesLoaded?: Function // 第一屏消息已加载完成
 
+    private _subscribersReadyResolve?: () => void
+    private _subscribersResolved: boolean = false
+    subscribersReady: Promise<void>
+
     constructor(channel: Channel, initLocateMessageSeq?: number) {
         super()
         this.channel = channel
@@ -129,6 +133,32 @@ export default class ConversationVM extends ProviderListener {
         } else {
             this.initLocateMessageSeq = initLocateMessageSeq
         }
+        this.subscribersReady = new Promise<void>(resolve => {
+            this._subscribersReadyResolve = resolve
+        })
+        if (channel.channelType === ChannelTypePerson) {
+            this._resolveSubscribersReady()
+        }
+    }
+
+    private _resolveSubscribersReady() {
+        if (this._subscribersResolved) return
+        this._subscribersResolved = true
+        this._subscribersReadyResolve?.()
+    }
+
+    async ensureSubscribersLoaded(timeoutMs: number = 3000): Promise<void> {
+        if (this.subscribers.length > 0) {
+            this._resolveSubscribersReady()
+            return
+        }
+        if (this.channel.channelType === ChannelTypePerson) {
+            return
+        }
+        await Promise.race([
+            this.subscribersReady,
+            new Promise<void>(resolve => setTimeout(resolve, timeoutMs))
+        ])
     }
     get currentHandlerType(): number {
         return this._currentHandlerType
@@ -902,14 +932,17 @@ export default class ConversationVM extends ProviderListener {
                         limit: 100,
                         page: 1,
                     })
+                    this._resolveSubscribersReady()
                 } else {
                     // 普通群：从缓存拿，没有则同步
                     const cached = WKSDK.shared().channelManager.getSubscribes(parentChannel)
                     if (cached && cached.length > 0) {
                         this.subscribers = cached
+                        this._resolveSubscribersReady()
                     } else {
                         await WKSDK.shared().channelManager.syncSubscribes(parentChannel)
                         this.subscribers = WKSDK.shared().channelManager.getSubscribes(parentChannel) || []
+                        this._resolveSubscribersReady()
                         // 注册前先移除旧监听器，避免多次调用时重复注册
                         if (this.subscriberChangeListener) {
                             WKSDK.shared().channelManager.removeSubscriberChangeListener(this.subscriberChangeListener)
@@ -917,6 +950,7 @@ export default class ConversationVM extends ProviderListener {
                         this.subscriberChangeListener = (channel: Channel) => {
                             if (channel.channelID !== parentGroupNo) return
                             this.subscribers = WKSDK.shared().channelManager.getSubscribes(parentChannel) || []
+                            this._resolveSubscribersReady()
                             this.notifyListener()
                         }
                         WKSDK.shared().channelManager.addSubscriberChangeListener(this.subscriberChangeListener)
@@ -935,12 +969,14 @@ export default class ConversationVM extends ProviderListener {
                 return
             }
             this.reloadSubscribers()
+            this._resolveSubscribersReady()
         }
         WKSDK.shared().channelManager.addSubscriberChangeListener(this.subscriberChangeListener)
 
         if (this.channelInfo?.orgData?.group_type == SuperGroup) {
             // 如果是超级群则只获取第一页成员
             this.subscribers = await this.getFirstPageMembers()
+            this._resolveSubscribersReady()
             WKSDK.shared().channelManager.subscribeCacheMap.set(this.channel.getChannelKey(), this.subscribers)
             WKSDK.shared().channelManager.notifySubscribeChangeListeners(this.channel)
             this.notifyListener()
@@ -1053,6 +1089,9 @@ export default class ConversationVM extends ProviderListener {
     // 重新加载订阅者
     reloadSubscribers() {
         this.subscribers = WKSDK.shared().channelManager.getSubscribes(this.channel)
+        if (this.subscribers.length > 0) {
+            this._resolveSubscribersReady()
+        }
         this.notifyListener()
     }
 

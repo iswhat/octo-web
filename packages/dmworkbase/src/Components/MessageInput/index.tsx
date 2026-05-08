@@ -93,7 +93,7 @@ interface MessageInputProps {
   onContext?: (ctx: MessageInputContext) => void;
   topView?: JSX.Element;
   botCommands?: BotCommand[];
-  getChatContext?: () => ChatContextResult;
+  getChatContext?: () => ChatContextResult | Promise<ChatContextResult>;
   onExpandChange?: (expanded: boolean) => void;
   /** Called when Alt+Enter is pressed in the editor */
   onAltEnter?: () => void;
