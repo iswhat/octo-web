@@ -69,6 +69,7 @@ export default function MatterPage() {
     WKApp.routeRight.replaceToRoot(
       <MatterDetailPanel
         key={matterId}
+        matterId={matterId}
         channelId=""
         channelType={0}
         onClose={() => setSelectedMatterId(null)}
