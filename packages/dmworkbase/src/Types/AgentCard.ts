@@ -58,7 +58,7 @@ export interface RuntimeInfo {
   /** Node.js 环境版本 */
   nodejs_version: string;
   /** 网络连接延迟（ms） */
-  network_latency_ms: number;
+  network_latency_ms: number | null;
   /** 服务端最后收到心跳时间（ISO 8601） */
   last_heartbeat_at: string;
   /** 记忆文件保留数量 */

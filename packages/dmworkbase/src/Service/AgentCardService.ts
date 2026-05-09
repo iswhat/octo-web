@@ -9,6 +9,8 @@ import type {
   FileContentData,
 } from '../Types/AgentCard';
 
+export type { AgentCardData, RuntimeInfo, SessionInfo, CoreFile, MemoryFile, FileContentData } from '../Types/AgentCard';
+
 /**
  * AgentCardService
  * 

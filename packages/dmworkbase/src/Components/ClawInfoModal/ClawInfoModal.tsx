@@ -115,14 +115,7 @@ export default function ClawInfoModal({ botId, botName, visible, onClose }: Claw
       : channelDisplay;
 
     // 状态映射（直接使用 API 返回的状态值）
-    const statusMap: Record<string, "running" | "done" | "failed" | "killed" | "timeout"> = {
-      running: "running",
-      done: "done",
-      failed: "failed",
-      killed: "killed",
-      timeout: "timeout",
-    };
-    const mappedStatus = statusMap[s.status] || "done";
+    const mappedStatus = (s.status as "running" | "done" | "failed" | "killed" | "timeout") || "done";
 
     return {
       key: s.session_key,

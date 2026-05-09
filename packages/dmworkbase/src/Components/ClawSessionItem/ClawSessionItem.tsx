@@ -73,7 +73,6 @@ export default function ClawSessionItem({ session }: ClawSessionItemProps) {
     timeout: { badge: "TIMEOUT", class: "failed" },
   }[status];
 
-  const isRunning = status === "running";
   const statusClass = statusConfig?.class || "done";
 
   return (
