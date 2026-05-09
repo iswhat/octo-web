@@ -499,7 +499,7 @@ export default class BotDetailModal extends Component<BotDetailModalProps, BotDe
                                 className={`wk-bot-detail-claw-btn${!reported ? " wk-bot-detail-claw-btn--disabled" : ""}`}
                                 style={{ marginTop: 16 }}
                                 aria-label={reported ? "查看龙虾信息" : undefined}
-                                title={!reported ? "该 Bot 尚未在 OctoPush 中接入并上报。请先配置 OctoPush 网关并打开上报信息开关。" : undefined}
+                                data-tooltip={!reported ? "该 Bot 尚未在 OctoPush 中接入并上报。请先配置 OctoPush 网关并打开上报信息开关。" : undefined}
                             >
                                 🦞 查看龙虾信息
                             </Button>

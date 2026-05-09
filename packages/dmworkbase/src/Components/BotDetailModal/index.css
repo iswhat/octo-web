@@ -187,9 +187,9 @@
     cursor: not-allowed !important;
 }
 
-/* 灰态按钮的 tooltip（通过 title 属性实现） */
-.wk-bot-detail-claw-btn--disabled[title]:hover::after {
-    content: attr(title);
+/* 灰态按钮的 tooltip（通过 data-tooltip 属性实现，避免与浏览器原生 tooltip 冲突） */
+.wk-bot-detail-claw-btn--disabled[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
@@ -208,7 +208,7 @@
     width: max-content;
 }
 
-.wk-bot-detail-claw-btn--disabled[title]:hover::before {
+.wk-bot-detail-claw-btn--disabled[data-tooltip]:hover::before {
     content: '';
     position: absolute;
     left: 50%;
