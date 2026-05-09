@@ -1980,15 +1980,15 @@ export class Conversation
                       }}
                       onContext={(ctx) => {
                         this._messageInputContext = ctx;
-                        // flush 延迟的 insertText（componentDidMount 时 context 可能还没就绪）
-                        if (this._pendingInsertText) {
-                          ctx.insertText(this._pendingInsertText);
-                          this._pendingInsertText = undefined;
-                        }
-                        // flush 延迟的草稿恢复
+                        // 先 flush 草稿恢复（setContent 替换整块），再 flush insertText（追加）
+                        // 顺序相反会导致 setContent 覆盖掉前面追加的内容
                         if (this._pendingRestoreDraft) {
                           ctx.restoreDraft(this._pendingRestoreDraft);
                           this._pendingRestoreDraft = undefined;
+                        }
+                        if (this._pendingInsertText) {
+                          ctx.insertText(this._pendingInsertText);
+                          this._pendingInsertText = undefined;
                         }
                       }}
                       toolbar={this.chatToolbarUI()}

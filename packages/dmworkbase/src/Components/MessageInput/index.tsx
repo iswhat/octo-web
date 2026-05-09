@@ -949,10 +949,9 @@ const MessageInput: React.FC<MessageInputProps> = (props) => {
   const insertText = useCallback(
     (text: string) => {
       if (editor) {
-        // insertText 保持追加语义，用于 emoji、引用回复等场景
-        // 整段 paragraph 数组交给 Tiptap，保留多行结构
-        const content = parseDraftToContent(text);
-        editor.commands.insertContent(content.content);
+        // 原样追加，不解析 @[uid:label]（与 main 行为一致）
+        // mention 格式的反序列化仅在 restoreDraft 中处理
+        editor.commands.insertContent(text);
         editor.commands.focus();
       }
     },
