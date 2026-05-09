@@ -1771,6 +1771,25 @@ export class Conversation
                         channelType: ch.channelType,
                       });
                     }}
+                    onCreateMatter={() => {
+                      const checkedMsgs = vm.getCheckedMessages();
+                      if (!checkedMsgs || checkedMsgs.length === 0) {
+                        Toast.error("请先选择消息！");
+                        return;
+                      }
+                      const ch = this.props.channel;
+                      WKApp.mittBus.emit("wk:open-smart-create-modal", {
+                        channelId: ch.channelID,
+                        channelType: ch.channelType,
+                        messages: checkedMsgs.map((m: any) => ({
+                          messageSeq: m.messageSeq,
+                          messageID: m.messageID,
+                          fromUID: m.fromUID,
+                          content: m.content?.conversationDigest || m.content?.text || '',
+                          timestamp: m.message?.timestamp,
+                        })),
+                      });
+                    }}
                   ></MultiplePanel>
 
                   <WKModal
@@ -2503,12 +2522,13 @@ interface MultiplePanelProps {
   onMergeForward?: () => void; // 合并转发
   onDelete?: () => void; // 删除
   onAddToMatter?: (anchor: HTMLElement) => void; // 添加到事项（传出按钮 DOM 给菜单定位）
+  onCreateMatter?: () => void; // 创建新事项
 }
 class MultiplePanel extends Component<MultiplePanelProps> {
   private matterBtnRef = React.createRef<HTMLButtonElement>();
 
   render(): React.ReactNode {
-    const { onClose, onForward, onMergeForward, onDelete, onAddToMatter } = this.props;
+    const { onClose, onForward, onMergeForward, onDelete, onAddToMatter, onCreateMatter } = this.props;
     return (
       <div className="wk-multiplepanel">
         <button className="wk-multiplepanel-btn" onClick={onForward}>
@@ -2523,7 +2543,7 @@ class MultiplePanel extends Component<MultiplePanelProps> {
         <button
           className="wk-multiplepanel-btn wk-multiplepanel-btn--matter"
           onClick={() => {
-            WKApp.mittBus.emit('wk:open-smart-create-modal', {});
+            if (onCreateMatter) onCreateMatter();
           }}
           title="创建新事项"
         >

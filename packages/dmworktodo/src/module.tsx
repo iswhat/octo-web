@@ -495,12 +495,14 @@ function mountGlobalSmartCreateModal() {
 function GlobalSmartCreateModal() {
   const [open, setOpen] = useState(false);
   const [channel, setChannel] = useState<{ channelId: string; channelType: number } | undefined>();
+  const [messages, setMessages] = useState<any[]>([]);
 
   useEffect(() => {
-    const handler = (data?: { channelId?: string; channelType?: number }) => {
+    const handler = (data?: { channelId?: string; channelType?: number; messages?: any[] }) => {
       if (data?.channelId) {
         setChannel({ channelId: data.channelId, channelType: data.channelType || 0 });
       }
+      setMessages(data?.messages || []);
       setOpen(true);
     };
     WKApp.mittBus.on('wk:open-smart-create-modal', handler);
@@ -512,9 +514,11 @@ function GlobalSmartCreateModal() {
   return (
     <SmartCreateModal
       visible={open}
-      blank
+      blank={messages.length === 0}
+      count={messages.length}
       onClose={() => setOpen(false)}
       onConfirm={async (req) => {
+        // TODO(backend): 后续 CreateMatterReq 需要扩展 messages 字段
         await createMatter(req);
         Toast.success('事项已创建');
       }}
