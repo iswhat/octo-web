@@ -2,6 +2,13 @@
  * MatterDetailPanel — 严格对齐原型 v19
  */
 
+/* Matter 模块局部 token（紫色品牌色，原型指定） */
+:root {
+  --wk-matter-accent: #8b5cf6;
+  --wk-matter-accent-text: #6d28d9;
+  --wk-matter-accent-bg: rgba(139, 92, 246, 0.04);
+}
+
 /* ─── Main container ─────────────────────────────────── */
 .wk-mp-main {
   flex: 1;
@@ -144,14 +151,14 @@
 }
 
 .wk-mp-pill--active {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--wk-color-info-bg, #eff6ff);
+  color: var(--wk-color-info, #1d4ed8);
   border-color: rgba(37, 99, 235, 0.15);
 }
 
 .wk-mp-pill--done {
-  background: #f0fdf4;
-  color: #15803d;
+  background: var(--wk-color-success-bg, #f0fdf4);
+  color: var(--wk-color-success, #15803d);
   border-color: rgba(22, 163, 74, 0.15);
 }
 
@@ -201,15 +208,15 @@
 .wk-mp-goal {
   margin-top: 16px;
   padding: 12px 16px;
-  border-left: 3px solid #8b5cf6;
-  background: rgba(139, 92, 246, 0.04);
+  border-left: 3px solid var(--wk-matter-accent, #8b5cf6);
+  background: var(--wk-matter-accent-bg, rgba(139, 92, 246, 0.04));
   border-radius: 0 6px 6px 0;
 }
 
 .wk-mp-goal__label {
   font-size: 11px;
   font-weight: 600;
-  color: #6d28d9;
+  color: var(--wk-matter-accent-text, #6d28d9);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin-bottom: 6px;
@@ -387,15 +394,15 @@
 .wk-mp-channels__card-progress {
   margin-top: 4px;
   padding: 8px 12px;
-  border-left: 2px solid #8b5cf6;
-  background: rgba(139, 92, 246, 0.04);
+  border-left: 2px solid var(--wk-matter-accent, #8b5cf6);
+  background: var(--wk-matter-accent-bg, rgba(139, 92, 246, 0.04));
   border-radius: 0 6px 6px 0;
 }
 
 .wk-mp-channels__card-progress-label {
   font-size: 10px;
   font-weight: 600;
-  color: #6d28d9;
+  color: var(--wk-matter-accent-text, #6d28d9);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 4px;

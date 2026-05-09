@@ -12,7 +12,7 @@ export interface MatterDetailPanelProps {
   onClose: () => void;
 }
 
-export default function MatterDetailPanel({ channelId, channelType, matterId, onClose }: MatterDetailPanelProps) {
+export default function MatterDetailPanel({ channelId, channelType: _channelType, matterId, onClose }: MatterDetailPanelProps) {
   const [matter, setMatter] = useState<MatterDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
