@@ -6,6 +6,7 @@ import type {
   SessionInfo,
   CoreFile,
   MemoryFile,
+  FileContentData,
 } from '@octo/contacts';
 
 /**
@@ -103,6 +104,24 @@ class AgentCardService {
       mtime: this.formatTime(data.last_synced_at),
       content: data.content,
     };
+  }
+
+  /**
+   * 获取文件原始数据（供 agentCardApi 代理层使用）
+   * @param botId Bot ID
+   * @param fileName 文件路径
+   * @returns 文件原始数据
+   */
+  async getFileData(botId: string, fileName: string): Promise<FileContentData> {
+    const response = await APIClient.shared.get<{ code: number; message: string; data: FileContentData }>(
+      `/agent-cards/${botId}/files/${fileName}`
+    );
+
+    if (response.code !== 0) {
+      throw new Error(response.message || 'Failed to fetch file content');
+    }
+
+    return response.data;
   }
 
   /**

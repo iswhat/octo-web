@@ -87,8 +87,6 @@ export default function ClawInfoModal({ botId, botName, visible, onClose }: Claw
     }
   }, [visible]);
 
-
-
   const mapToSessionData = (s: AgentCardResponse["sessions"][0]): SessionData => {
     // 渠道名称映射（中文）
     const channelMap: Record<string, string> = {
