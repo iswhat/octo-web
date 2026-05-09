@@ -1757,6 +1757,16 @@ export class Conversation
                       }
                       this.setState({ showDeleteConfirm: true });
                     }}
+                    onAddToMatter={(anchor) => {
+                      const checkedMsgs = vm.getCheckedMessages();
+                      if (!checkedMsgs || checkedMsgs.length === 0) {
+                        Toast.error("请先选择消息！");
+                        return;
+                      }
+                      // 交给 dmworktodo 模块接管（渲染 MatterLinkMenu、处理关联流程）
+                      // TODO(interaction): 后续把 checkedMsgs 也传过去用于 PRD §4.1 多选关联
+                      WKApp.mittBus.emit("wk:open-matter-link-menu", { anchor });
+                    }}
                   ></MultiplePanel>
 
                   <WKModal
@@ -2488,10 +2498,13 @@ interface MultiplePanelProps {
   onForward?: () => void; // 逐条转发
   onMergeForward?: () => void; // 合并转发
   onDelete?: () => void; // 删除
+  onAddToMatter?: (anchor: HTMLElement) => void; // 添加到事项（传出按钮 DOM 给菜单定位）
 }
 class MultiplePanel extends Component<MultiplePanelProps> {
+  private matterBtnRef = React.createRef<HTMLButtonElement>();
+
   render(): React.ReactNode {
-    const { onClose, onForward, onMergeForward, onDelete } = this.props;
+    const { onClose, onForward, onMergeForward, onDelete, onAddToMatter } = this.props;
     return (
       <div className="wk-multiplepanel">
         <button className="wk-multiplepanel-btn" onClick={onForward}>
@@ -2500,6 +2513,20 @@ class MultiplePanel extends Component<MultiplePanelProps> {
         <div className="wk-multiplepanel-sep" />
         <button className="wk-multiplepanel-btn" onClick={onMergeForward}>
           合并转发
+        </button>
+        <div className="wk-multiplepanel-sep" />
+        {/* 添加到事项 — 点击由调用方弹出菜单（dmworktodo 模块接管） */}
+        <button
+          ref={this.matterBtnRef}
+          className="wk-multiplepanel-btn wk-multiplepanel-btn--matter"
+          onClick={() => {
+            if (onAddToMatter && this.matterBtnRef.current) {
+              onAddToMatter(this.matterBtnRef.current);
+            }
+          }}
+          title="添加到事项"
+        >
+          添加到事项
         </button>
         <div className="wk-multiplepanel-sep" />
         <button

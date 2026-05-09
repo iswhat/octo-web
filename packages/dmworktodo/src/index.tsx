@@ -16,6 +16,7 @@ export { default as CreateTaskModal } from './ui/CreateTaskModal';
 
 // Chat Integration
 export { default as ChatMatterPanel } from './panel/ChatTodoPanel';
+export { default as MatterDetailPanel } from './panel/MatterDetailPanel';
 
 // Types
 export * from './bridge/types';

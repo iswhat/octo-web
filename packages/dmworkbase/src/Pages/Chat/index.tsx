@@ -67,6 +67,10 @@ export interface ChatContentPageState {
   activePreviewMessageId: string | null;
   /** 任务列表面板是否显示 */
   showMatterPanel: boolean;
+  /** v0.7 Matter 详情面板是否显示（跟子区/文件预览/任务列表可并存） */
+  showMatterDetailPanel: boolean;
+  /** 是否处于"选择消息添加到事项"的多选模式 */
+  matterSelectionMode: boolean;
 }
 export class ChatContentPage extends Component<
   ChatContentPageProps,
@@ -87,6 +91,8 @@ export class ChatContentPage extends Component<
       previewFile: null,
       activePreviewMessageId: null,
       showMatterPanel: false,
+      showMatterDetailPanel: false,
+      matterSelectionMode: false,
     };
   }
 
@@ -206,6 +212,38 @@ export class ChatContentPage extends Component<
     };
     WKApp.mittBus.on("wk:toggle-matter-panel", this._onToggleMatterPanel);
 
+    // 监听"选择消息添加到事项"按钮 → 进入多选模式
+    this._onEnterMatterSelection = (data) => {
+      if (
+        data.channelId !== channel.channelID ||
+        data.channelType !== channel.channelType
+      )
+        return;
+      // 进入多选模式
+      this.conversationContext?.setEditOn(true);
+      this.setState({ matterSelectionMode: true });
+    };
+    WKApp.mittBus.on(
+      "wk:enter-matter-selection",
+      this._onEnterMatterSelection
+    );
+
+    // 注册 v0.7 事项详情面板切换（跟子区/文件预览/任务列表可并存，不互斥）
+    this._onToggleMatterDetailPanel = (data) => {
+      if (
+        data.channelId !== channel.channelID ||
+        data.channelType !== channel.channelType
+      )
+        return;
+      this.setState((prevState) => ({
+        showMatterDetailPanel: !prevState.showMatterDetailPanel,
+      }));
+    };
+    WKApp.mittBus.on(
+      "wk:toggle-matter-detail-panel",
+      this._onToggleMatterDetailPanel
+    );
+
     // 检查是否需要自动打开子区面板（查看全部子区）
     if (WKApp.shared.pendingThreadPanel === channel.channelID) {
       this.setState({
@@ -324,6 +362,14 @@ export class ChatContentPage extends Component<
     channelId: string;
     channelType: number;
   }) => void;
+  private _onToggleMatterDetailPanel?: (data: {
+    channelId: string;
+    channelType: number;
+  }) => void;
+  private _onEnterMatterSelection?: (data: {
+    channelId: string;
+    channelType: number;
+  }) => void;
 
   componentWillUnmount() {
     WKApp.mittBus.off("wk:file-preview", this._onFilePreview);
@@ -335,6 +381,18 @@ export class ChatContentPage extends Component<
     }
     if (this._onToggleMatterPanel) {
       WKApp.mittBus.off("wk:toggle-matter-panel", this._onToggleMatterPanel);
+    }
+    if (this._onToggleMatterDetailPanel) {
+      WKApp.mittBus.off(
+        "wk:toggle-matter-detail-panel",
+        this._onToggleMatterDetailPanel
+      );
+    }
+    if (this._onEnterMatterSelection) {
+      WKApp.mittBus.off(
+        "wk:enter-matter-selection",
+        this._onEnterMatterSelection
+      );
     }
     WKSDK.shared().channelManager.removeListener(this.channelInfoListener);
   }
@@ -349,6 +407,7 @@ export class ChatContentPage extends Component<
       activeThread,
       previewFile,
       showMatterPanel,
+      showMatterDetailPanel,
     } = this.state;
     // 子区页面不显示讨论串按钮
     const isThreadChannel = channel.channelType === ChannelTypeCommunityTopic;
@@ -363,7 +422,8 @@ export class ChatContentPage extends Component<
           showChannelSetting ? "wk-chat-channelsetting-open" : "",
           showThreadPanel || previewFile || showMatterPanel
             ? "wk-chat-threadpanel-open"
-            : ""
+            : "",
+          showMatterDetailPanel ? "wk-chat-matter-detail-panel-open" : ""
         )}
       >
         <div
@@ -509,6 +569,7 @@ export class ChatContentPage extends Component<
                       e.stopPropagation();
                       this.conversationContext?.clearCheckedMessages();
                       this.conversationContext?.setEditOn(false);
+                      this.setState({ matterSelectionMode: false });
                     }}
                   >
                     取消
@@ -719,6 +780,15 @@ export class ChatContentPage extends Component<
           <div className="wk-thread-panel">
             {WKApp.endpoints.chatMatterPanel(channel, () =>
               this.setState({ showMatterPanel: false })
+            )}
+          </div>
+        )}
+
+        {/* v0.7 Matter 详情面板（跟子区/文件预览/任务列表可并存，不互斥） */}
+        {showMatterDetailPanel && (
+          <div className="wk-matter-detail-panel">
+            {WKApp.endpoints.chatMatterDetailPanel(channel, () =>
+              this.setState({ showMatterDetailPanel: false })
             )}
           </div>
         )}

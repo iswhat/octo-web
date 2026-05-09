@@ -11,6 +11,12 @@ export type MittEvents = {
   };
   "wk:close-thread-panel": undefined;
   "wk:toggle-matter-panel": { channelId: string; channelType: number };
+  /** v0.7 Matter 详情面板切换（跟子区/文件预览/任务列表可并存） */
+  "wk:toggle-matter-detail-panel": { channelId: string; channelType: number };
+  /** 进入"选择消息添加到事项"多选模式 */
+  "wk:enter-matter-selection": { channelId: string; channelType: number };
+  /** 打开多选→添加到事项的弹出菜单（由 dmworktodo 模块接管渲染） */
+  "wk:open-matter-link-menu": { anchor: HTMLElement };
   "wk:switch-sidebar-tab": string;
   "wk:file-preview": {
     url: string;
