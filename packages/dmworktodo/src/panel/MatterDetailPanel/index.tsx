@@ -15,13 +15,17 @@ import {
   listTimeline,
   addTimelineEntry,
   deleteTimelineEntry,
+  addAssignee,
+  removeAssignee,
 } from "../../api/todoApi";
 import { Toast } from "../../utils/toast";
 import UserName from "../../ui/UserName";
 import LinkChannelsModal from "../../ui/LinkChannelsModal";
+import OwnerEditor from "../../ui/OwnerEditor";
 import WKAvatar from "@octo/base/src/Components/WKAvatar";
 import { Channel, ChannelTypePerson } from "wukongimjssdk";
 import { WKApp } from "@octo/base";
+import { useChannelName } from "../../hooks/useChannelName";
 import "./index.css";
 
 export interface MatterDetailPanelProps {
@@ -184,6 +188,41 @@ export default function MatterDetailPanel({
     [matter],
   );
 
+  // ── 负责人 toggle：添加或移除 assignee，成功后拉取最新 matter ──
+  // 权限判断在 UI 层已拦掉无权用户（OwnerEditor canEdit=false 不弹下拉），
+  // 这里兜底任何异常都 Toast，不回滚 optimistic（直接 refetch 是事实之源）
+  const handleToggleAssignee = useCallback(
+    async (uid: string, isCurrentlyAssigned: boolean) => {
+      if (!matter) return;
+      try {
+        if (isCurrentlyAssigned) {
+          await removeAssignee(matter.id, uid);
+        } else {
+          await addAssignee(matter.id, uid);
+        }
+        const updated = await getMatter(matter.id);
+        setMatter(updated);
+      } catch (err: any) {
+        const msg =
+          err?.response?.data?.error?.message ||
+          err?.message ||
+          (isCurrentlyAssigned ? "移除负责人失败" : "添加负责人失败");
+        Toast.error(msg);
+      }
+    },
+    [matter],
+  );
+
+  // ── Hooks: 必须在任何 early return 之前调用, 保证每次渲染 hook 顺序一致 ──
+  // source_name 是创建时拍的快照, 可能是 NULL 或跟当前群名不一致 (群改名)。
+  // 按需拿 channel id+type 反查最新 channel 名字, 保证展示永远是当前群名。
+  // 未命中时返回空串, 下面兜底到 source_name, 再兜底到 "未知群聊"。
+  // 注意: matter 可能还没加载, 用 optional chaining 让 hook 总是被调用。
+  const liveSourceName = useChannelName(
+    matter?.source_channel_id,
+    matter?.source_channel_type,
+  );
+
   // ── Empty / Loading / Error ──
 
   if (!matterId || loading || error || !matter) {
@@ -198,11 +237,38 @@ export default function MatterDetailPanel({
 
   const channels = matter.channels || [];
   const assignees = matter.assignees || [];
+  // 权限规则 (17-Matters-数据流修正-v0.7.md §5.2 的推导):
+  //   - 创建人 (creator) 或 当前负责人 (assignees 之一) 才能改负责人
+  //   - 关联群聊成员无权修改
+  const currentUid = WKApp.loginInfo.uid;
+  const canEditOwner =
+    !!currentUid &&
+    (matter.creator_id === currentUid ||
+      assignees.some((a) => a.user_id === currentUid));
+  // 候选成员来源：优先 matter 的来源 channel（发起 channel），没有则回落到 Space 成员
+  const ownerCandidateChannel =
+    matter.source_channel_id && matter.source_channel_type !== undefined
+      ? {
+          channelId: matter.source_channel_id,
+          channelType: matter.source_channel_type,
+        }
+      : undefined;
 
   const formatDeadline = (d: string) => {
     const date = new Date(d);
     return `${date.getMonth() + 1}/${date.getDate()}`;
   };
+
+  // 格式化来源时间: 5/1 16:00 (跟原型对齐)
+  const formatSourceTime = (iso: string) => {
+    const d = new Date(iso);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`;
+  };
+
+  const displaySourceName =
+    liveSourceName || matter.source_name || "未知群聊";
 
   const tabs: {
     id: "channels" | "outputs" | "changelog";
@@ -292,7 +358,7 @@ export default function MatterDetailPanel({
           <div className="wk-mp-goal">
             <div className="wk-mp-goal__label">主要目标</div>
             <div className="wk-mp-goal__text">{matter.description}</div>
-            {matter.source_name && (
+            {matter.source_channel_id && (
               <div className="wk-mp-goal__source">
                 <svg
                   width="10"
@@ -304,7 +370,11 @@ export default function MatterDetailPanel({
                 >
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
-                来自 #{matter.source_name}
+                <span>来自 #{displaySourceName}</span>
+                <span className="wk-mp-goal__source-sep">·</span>
+                <UserName uid={matter.creator_id} />
+                <span className="wk-mp-goal__source-sep">·</span>
+                <span>{formatSourceTime(matter.created_at)}</span>
               </div>
             )}
           </div>
@@ -312,6 +382,7 @@ export default function MatterDetailPanel({
 
         {/* ── 创建人 / 负责人 ── */}
         <div className="wk-mp-people">
+          {/* 创建人：纯展示, 按 PRD v0.7 不可变 */}
           <div className="wk-mp-people__item">
             <WKAvatar
               channel={new Channel(matter.creator_id, ChannelTypePerson)}
@@ -320,33 +391,15 @@ export default function MatterDetailPanel({
             <UserName uid={matter.creator_id} className="wk-mp-people__name" />
             <span className="wk-mp-people__role">创建人</span>
           </div>
+          {/* 负责人：可改 (仅发起人 OR 当前负责人), 至少保留 1 位 */}
           {assignees.length > 0 && (
             <div className="wk-mp-people__item">
-              <span className="wk-mp-people__avatars">
-                {assignees.map((a, i) => (
-                  <span
-                    key={a.user_id}
-                    className="wk-mp-people__avatar-wrap"
-                    style={{
-                      marginLeft: i > 0 ? -6 : 0,
-                      zIndex: assignees.length - i,
-                    }}
-                  >
-                    <WKAvatar
-                      channel={new Channel(a.user_id, ChannelTypePerson)}
-                      style={{ width: 16, height: 16 }}
-                    />
-                  </span>
-                ))}
-              </span>
-              <span className="wk-mp-people__name">
-                {assignees.map((a, i) => (
-                  <span key={a.user_id}>
-                    {i > 0 && "、"}
-                    <UserName uid={a.user_id} />
-                  </span>
-                ))}
-              </span>
+              <OwnerEditor
+                assignees={assignees}
+                canEdit={canEditOwner}
+                candidateChannel={ownerCandidateChannel}
+                onToggle={handleToggleAssignee}
+              />
               <span className="wk-mp-people__role">负责人</span>
             </div>
           )}

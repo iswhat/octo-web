@@ -3,6 +3,7 @@ import { Channel, ChannelTypePerson } from "wukongimjssdk";
 import WKAvatar from "@octo/base/src/Components/WKAvatar";
 import type { Matter } from "../../bridge/types";
 import UserName from "../UserName";
+import { useChannelName } from "../../hooks/useChannelName";
 import "./index.css";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
@@ -31,6 +32,13 @@ export default function SidebarCard({
 }) {
   const status = STATUS_MAP[matter.status] || STATUS_MAP.open;
   const ddl = formatDdl(matter.deadline);
+  // source_name 是创建时快照, 用 (source_channel_id, source_channel_type) 反查最新群名。
+  // 反查未命中时回退到 source_name, 都没有就隐藏整块 "·#xxx" (条件已收紧到 source_channel_id)。
+  const liveSourceName = useChannelName(
+    matter.source_channel_id,
+    matter.source_channel_type,
+  );
+  const displaySourceName = liveSourceName || matter.source_name;
 
   return (
     <button
@@ -58,11 +66,11 @@ export default function SidebarCard({
           <UserName uid={matter.creator_id} />
         </span>
         <span className="wk-mp-sidebar-card__meta-label">创建</span>
-        {matter.source_name && (
+        {matter.source_channel_id && displaySourceName && (
           <>
             <span className="wk-mp-sidebar-card__sep">·</span>
             <span className="wk-mp-sidebar-card__channel">
-              #{matter.source_name}
+              #{displaySourceName}
             </span>
           </>
         )}
@@ -81,6 +89,19 @@ export default function SidebarCard({
                 />
               </span>
             ))}
+          </span>
+          <span className="wk-mp-sidebar-card__owners-names">
+            {matter.assignees.slice(0, 3).map((a, i) => (
+              <React.Fragment key={a.user_id}>
+                {i > 0 && "、"}
+                <UserName uid={a.user_id} />
+              </React.Fragment>
+            ))}
+            {matter.assignees.length > 3 && (
+              <span className="wk-mp-sidebar-card__owners-more">
+                {" "}等 {matter.assignees.length} 人
+              </span>
+            )}
           </span>
           <span className="wk-mp-sidebar-card__owners-label">负责</span>
         </div>

@@ -252,6 +252,10 @@
   background: var(--wk-bg-hover, #f4f4f5);
 }
 
+.wk-mp-goal__source-sep {
+  color: var(--wk-border-default, #e4e4e7);
+}
+
 /* ─── 创建人 / 负责人 ────────────────────────────────── */
 .wk-mp-people {
   margin-top: 12px;

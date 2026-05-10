@@ -344,6 +344,14 @@
   display: inline-flex;
 }
 
+.wk-mp-sidebar-card__owners-names {
+  color: var(--wk-text-tertiary);
+}
+
+.wk-mp-sidebar-card__owners-more {
+  color: var(--wk-border-default);
+}
+
 .wk-mp-sidebar-card__owners-label {
   color: var(--wk-border-default);
 }
