@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { WKApp } from "@octo/base";
 import { useMatterList } from "../../hooks/useTodoList";
 import MatterDetailPanel from "../MatterDetailPanel";
 import SidebarCard from "../../ui/SidebarCard";
@@ -21,6 +20,7 @@ export default function ChatMatterPanel({
   onClose,
 }: ChatMatterPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("all");
+  const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
 
   const { matters, loading, reload } = useMatterList({
     initialFilters: {
@@ -38,17 +38,17 @@ export default function ChatMatterPanel({
     { id: "all", label: "全部" },
   ];
 
-  const handleSelect = (matterId: string) => {
-    WKApp.routeRight.replaceToRoot(
+  if (selectedMatterId) {
+    return (
       <MatterDetailPanel
-        key={matterId}
-        matterId={matterId}
+        key={selectedMatterId}
+        matterId={selectedMatterId}
         channelId={channelId}
         channelType={channelType}
-        onClose={() => WKApp.routeRight.pop()}
-      />,
+        onClose={() => setSelectedMatterId(null)}
+      />
     );
-  };
+  }
 
   return (
     <div className="wk-mp-page-sidebar">
@@ -88,7 +88,7 @@ export default function ChatMatterPanel({
               key={matter.id}
               matter={matter}
               selected={false}
-              onClick={() => handleSelect(matter.id)}
+              onClick={() => setSelectedMatterId(matter.id)}
             />
           ))}
         {!loading && displayMatters.length > 0 && (
