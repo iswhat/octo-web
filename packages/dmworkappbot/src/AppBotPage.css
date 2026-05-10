@@ -92,6 +92,10 @@
   object-fit: cover;
 }
 
+.appbot-list-avatar .wk-avatar {
+  border-radius: var(--wk-r-sm, 10px);
+}
+
 .appbot-list-info {
   flex: 1;
   min-width: 0;
