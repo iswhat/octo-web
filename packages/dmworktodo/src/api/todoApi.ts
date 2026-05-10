@@ -169,22 +169,94 @@ export async function unlinkChannel(matterId: string, channelId: string): Promis
 
 // ─── Extract (AI 智能创建) ───────────────────────────────
 
+// TODO(backend): 后端 feat/matter-digest-v3 分支合入后移除 mock，改为真实调用
+// return post<ExtractResult>('/matters/extract', req);
 export async function extractMatter(req: ExtractMatterReq): Promise<ExtractResult> {
-  return post<ExtractResult>('/matters/extract', req);
+  console.warn('[MOCK] extractMatter — 后端 /matters/extract 尚未部署，返回 mock 数据');
+  await new Promise((r) => setTimeout(r, 800)); // 模拟网络延迟
+  return {
+    id: crypto.randomUUID ? crypto.randomUUID() : 'mock-' + Date.now(),
+    seq_no: Math.floor(Math.random() * 9000) + 1000,
+    title: 'AI 提取: ' + (req.msgs[0]?.content?.slice(0, 30) || '新事项'),
+    description: req.msgs.map((m) => `${m.from_uname || m.from_uid}: ${m.content}`).join('\n').slice(0, 200),
+    source_msgs: req.msgs.map((m) => m.message_id),
+    deadline: null,
+    status: 'open',
+    created_at: new Date().toISOString(),
+  };
 }
 
 // ─── Timeline ───────────────────────────────────────────
 
+// TODO(backend): 后端 feat/matter-digest-v3 分支合入后移除 mock，改为真实调用
+// return get<PaginatedList<TimelineEntry>>(`/matters/${matterId}/timeline`, ...)
 export async function listTimeline(matterId: string, params?: ListCommentsParams): Promise<PaginatedList<TimelineEntry>> {
-  return get<PaginatedList<TimelineEntry>>(`/matters/${matterId}/timeline`, params as unknown as Record<string, unknown>);
+  console.warn('[MOCK] listTimeline — 后端 /timeline 尚未部署，返回 mock 数据');
+  return {
+    data: [
+      {
+        id: 'tl-mock-1',
+        matter_id: matterId,
+        user_id: 'mock-user-1',
+        content: '辉哥确认 PPT 需要加入 Coze 接入路径，作为核心亮点展示',
+        channel_id: 'mock-channel-1',
+        channel_type: 2,
+        source_msgs: ['msg-001', 'msg-002'],
+        related_uids: ['mock-user-1', 'mock-user-2'],
+        created_at: new Date(Date.now() - 3600000).toISOString(),
+        attachments: [],
+      },
+      {
+        id: 'tl-mock-2',
+        matter_id: matterId,
+        user_id: 'mock-user-2',
+        content: 'PMBot 已起草 PPT 模板初稿，待辉哥审阅',
+        channel_id: 'mock-channel-1',
+        channel_type: 2,
+        source_msgs: ['msg-003'],
+        related_uids: ['mock-user-2'],
+        created_at: new Date(Date.now() - 7200000).toISOString(),
+        attachments: [
+          { id: 'att-mock-1', entry_id: 'tl-mock-2', file_url: '#', file_name: 'PPT-draft-v1.pptx', created_at: new Date().toISOString() },
+        ],
+      },
+      {
+        id: 'tl-mock-3',
+        matter_id: matterId,
+        user_id: 'mock-user-1',
+        content: '事项已创建，来源: #设计群',
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        attachments: [],
+      },
+    ],
+    pagination: { has_more: false },
+  };
 }
 
+// TODO(backend): 后端 feat/matter-digest-v3 分支合入后移除 mock，改为真实调用
+// return post<TimelineEntry>(`/matters/${matterId}/timeline`, req)
 export async function addTimelineEntry(matterId: string, req: TimelineReq): Promise<TimelineEntry> {
-  return post<TimelineEntry>(`/matters/${matterId}/timeline`, req);
+  console.warn('[MOCK] addTimelineEntry — 后端 /timeline 尚未部署，返回 mock 数据');
+  await new Promise((r) => setTimeout(r, 300));
+  return {
+    id: 'tl-mock-' + Date.now(),
+    matter_id: matterId,
+    user_id: 'current-user',
+    content: req.content || null,
+    channel_id: req.channel_id,
+    channel_type: req.channel_type,
+    source_msgs: [],
+    related_uids: [],
+    created_at: new Date().toISOString(),
+    attachments: [],
+  };
 }
 
+// TODO(backend): 后端 feat/matter-digest-v3 分支合入后移除 mock，改为真实调用
+// return del<void>(`/matters/${matterId}/timeline/${entryId}`)
 export async function deleteTimelineEntry(matterId: string, entryId: string): Promise<void> {
-  return del<void>(`/matters/${matterId}/timeline/${entryId}`);
+  console.warn('[MOCK] deleteTimelineEntry — 后端 /timeline 尚未部署，mock 删除');
+  await new Promise((r) => setTimeout(r, 200));
 }
 
 // ─── 兼容旧 API（deprecated） ────────────────────────────
