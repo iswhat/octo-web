@@ -207,6 +207,9 @@ export default function LinkChannelsModal({
                   </span>
                   <div className="wk-lcm__item-info">
                     <span className="wk-lcm__item-name">{c.name}</span>
+                    {c.channelType === 1 && (
+                      <span className="wk-lcm__dm-badge">DM</span>
+                    )}
                     {c.desc && (
                       <div className="wk-lcm__item-desc">{c.desc}</div>
                     )}

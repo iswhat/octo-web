@@ -264,6 +264,20 @@ export default function MatterDetailPanel({
               </svg>
               转发
             </button>
+            <button
+              type="button"
+              className="wk-mp-header__close"
+              onClick={onClose}
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M4 4l8 8M12 4l-8 8"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
           </div>
           <h1 className="wk-mp-header__title">{matter.title}</h1>
         </header>
@@ -376,9 +390,7 @@ export default function MatterDetailPanel({
               </button>
             </div>
             {channels.length === 0 ? (
-              <div className="wk-mp-channels__empty">
-                暂无关联群聊 — 多选关联或一键总结
-              </div>
+              <div className="wk-mp-channels__empty">暂无关联群聊</div>
             ) : (
               channels.map((ch) => (
                 <div key={ch.id} className="wk-mp-channels__card">
@@ -715,12 +727,24 @@ function groupByDate(entries: TimelineEntry[]): Map<string, TimelineEntry[]> {
   const map = new Map<string, TimelineEntry[]>();
   for (const e of entries) {
     const d = new Date(e.created_at);
-    const key = `${d.getMonth() + 1}/${d.getDate()}`;
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
     const arr = map.get(key) || [];
     arr.push(e);
     map.set(key, arr);
   }
   return map;
+}
+
+function dayLabel(key: string): { label: string; raw: string } {
+  const [y, m, d] = key.split("-").map(Number);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(y, m - 1, d);
+  const diff = Math.round((today.getTime() - target.getTime()) / 86400000);
+  const raw = `${m}/${d}`;
+  if (diff === 0) return { label: "今天", raw };
+  if (diff === 1) return { label: "昨天", raw };
+  return { label: raw, raw };
 }
 
 /** 格式化时间为 HH:MM */
@@ -792,61 +816,67 @@ function TimelinePanel({ entries }: { entries: TimelineEntry[] }) {
       </div>
 
       {/* 按日期分组 */}
-      {Array.from(grouped.entries()).map(([dateKey, items]) => (
-        <div key={dateKey} className="wk-mp-tl__group">
-          {/* 日期分隔线 */}
-          <div className="wk-mp-tl__date-sep">
-            <span className="wk-mp-tl__date-label">{dateKey}</span>
-            <span className="wk-mp-tl__date-line" />
-          </div>
+      {Array.from(grouped.entries()).map(([dateKey, items]) => {
+        const dl = dayLabel(dateKey);
+        return (
+          <div key={dateKey} className="wk-mp-tl__group">
+            <div className="wk-mp-tl__date-sep">
+              <span className="wk-mp-tl__date-label">{dl.label}</span>
+              {dl.label !== dl.raw && (
+                <span className="wk-mp-tl__date-raw">{dl.raw}</span>
+              )}
+              <span className="wk-mp-tl__date-line" />
+            </div>
 
-          {/* 当日条目 */}
-          <div className="wk-mp-tl__entries">
-            {items.map((e) => (
-              <div key={e.id} className="wk-mp-tl__entry">
-                {/* 时间 */}
-                <span className="wk-mp-tl__time">
-                  {formatTime(e.created_at)}
-                </span>
-                {/* 头像 + 人名 */}
-                <span className="wk-mp-tl__user">
-                  <WKAvatar
-                    channel={new Channel(e.user_id, ChannelTypePerson)}
-                    style={{ width: 16, height: 16 }}
-                  />
-                  <UserName uid={e.user_id} className="wk-mp-tl__user-name" />
-                </span>
-                {/* 内容 */}
-                <span className="wk-mp-tl__content">{e.content || ""}</span>
-                {/* 附件 */}
-                {e.attachments && e.attachments.length > 0 && (
-                  <span className="wk-mp-tl__att-count">
-                    {e.attachments.length} 附件
+            {/* 当日条目 */}
+            <div className="wk-mp-tl__entries">
+              {items.map((e) => (
+                <div key={e.id} className="wk-mp-tl__entry">
+                  {/* 时间 */}
+                  <span className="wk-mp-tl__time">
+                    {formatTime(e.created_at)}
                   </span>
-                )}
-                {/* ↗ 原消息 */}
-                <button
-                  type="button"
-                  className="wk-mp-tl__anchor-btn"
-                  title="查看原消息上下文"
-                >
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
+                  {/* 头像 + 人名 */}
+                  <span className="wk-mp-tl__user">
+                    <WKAvatar
+                      channel={new Channel(e.user_id, ChannelTypePerson)}
+                      style={{ width: 16, height: 16 }}
+                    />
+                    <UserName uid={e.user_id} className="wk-mp-tl__user-name" />
+                  </span>
+                  {/* 内容 */}
+                  <span className="wk-mp-tl__content">{e.content || ""}</span>
+                  {/* 附件 */}
+                  {e.attachments && e.attachments.length > 0 && (
+                    <span className="wk-mp-tl__att-count">
+                      {e.attachments.length} 附件
+                    </span>
+                  )}
+                  {/* ↗ 原消息 */}
+                  <button
+                    type="button"
+                    className="wk-mp-tl__anchor-btn"
+                    title="查看原消息上下文"
+                    onClick={() => Toast.info("跳转到原消息")}
                   >
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                  ↗ 原消息
-                </button>
-              </div>
-            ))}
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    ↗ 原消息
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {entries.length === 0 && (
         <div className="wk-mp-tl__empty">暂无时间线记录</div>

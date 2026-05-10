@@ -4,7 +4,7 @@
 
 // ─── Status enums ───────────────────────────────────────
 
-export type MatterStatus = 'open' | 'done' | 'archived';
+export type MatterStatus = "open" | "done" | "archived";
 
 // ─── Core models (match backend JSON exactly) ───────────
 
@@ -25,6 +25,7 @@ export interface Matter {
   source_channel_id?: string;
   source_channel_type?: number;
   source_name?: string;
+  assignees?: MatterAssignee[];
   created_at: string;
   updated_at: string;
 }

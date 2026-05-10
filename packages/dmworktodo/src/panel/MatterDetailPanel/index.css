@@ -42,7 +42,7 @@
 }
 
 .wk-mp-header__id {
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 11px;
   color: var(--wk-text-tertiary, #71717a);
   padding: 2px 6px;
@@ -133,9 +133,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 9px 2px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
@@ -148,8 +148,8 @@
 }
 
 .wk-mp-pill__dot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: currentColor;
 }
@@ -167,8 +167,8 @@
 }
 
 .wk-mp-pill--archived {
-  background: var(--wk-bg-elevated, #f4f4f5);
-  color: var(--wk-text-tertiary, #71717a);
+  background: #f4f4f5;
+  color: var(--wk-text-secondary, #52525b);
   border-color: var(--wk-border-default, #e4e4e7);
 }
 
@@ -388,10 +388,12 @@
 }
 
 .wk-mp-channels__empty {
-  padding: 40px 0;
+  padding: 32px 0;
   text-align: center;
-  color: var(--wk-text-tertiary, #71717a);
+  color: var(--wk-text-quaternary, #a1a1aa);
   font-size: 12px;
+  border: 1px dashed var(--wk-border-default, #e4e4e7);
+  border-radius: 6px;
 }
 
 .wk-mp-channels__card {
@@ -427,15 +429,15 @@
 .wk-mp-channels__card-progress {
   margin-top: 4px;
   padding: 8px 12px;
-  border-left: 2px solid var(--wk-matter-accent, #8b5cf6);
-  background: var(--wk-matter-accent-bg, rgba(139, 92, 246, 0.04));
+  border-left: 2px solid var(--wk-matter-accent, #a78bfa);
+  background: rgba(139, 92, 246, 0.06);
   border-radius: 0 6px 6px 0;
 }
 
 .wk-mp-channels__card-progress-label {
   font-size: 10px;
   font-weight: 600;
-  color: var(--wk-matter-accent-text, #6d28d9);
+  color: var(--wk-matter-accent-text, #7c3aed);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 4px;
@@ -444,7 +446,7 @@
 .wk-mp-channels__card-progress-text {
   font-size: 13px;
   color: var(--wk-text-primary, #18181b);
-  line-height: 1.5;
+  line-height: 1.625;
 }
 
 .wk-mp-channels__card-actions {
@@ -604,7 +606,7 @@
   padding: 16px;
   background: var(--wk-bg-elevated, #fafafa);
   border: 1px solid var(--wk-border-default, #e4e4e7);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 /* Header row */
@@ -620,7 +622,7 @@
   font-weight: 600;
   color: var(--wk-text-secondary, #3f3f46);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
 }
 
 /* Sort toggle button group */
@@ -686,6 +688,13 @@
   flex-shrink: 0;
 }
 
+.wk-mp-tl__date-raw {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  color: var(--wk-text-tertiary, #a1a1aa);
+  flex-shrink: 0;
+}
+
 .wk-mp-tl__date-line {
   flex: 1;
   height: 1px;
@@ -733,13 +742,10 @@
 /* Content text — fills remaining space */
 .wk-mp-tl__content {
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.625;
   flex: 1;
   min-width: 0;
-  color: var(--wk-text-primary, #18181b);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--wk-text-secondary, #27272a);
 }
 
 /* Attachment count badge */
