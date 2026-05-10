@@ -45,8 +45,11 @@ export default class SummaryEditor extends Component<SummaryEditorProps, Summary
     private adjustHeight = () => {
         const el = this.textareaRef.current;
         if (el) {
+            // Let CSS max-height handle the sizing instead of dynamic height
+            // This prevents the textarea from growing indefinitely and causing scroll issues
             el.style.height = "auto";
-            el.style.height = el.scrollHeight + "px";
+            const newHeight = Math.min(el.scrollHeight, 600);
+            el.style.height = newHeight + "px";
         }
     };
 
@@ -87,31 +90,9 @@ export default class SummaryEditor extends Component<SummaryEditorProps, Summary
                     value={content}
                     onChange={this.handleChange}
                     disabled={saving}
-                    style={{
-                        width: "100%",
-                        minHeight: 200,
-                        padding: "12px 16px",
-                        fontSize: 14,
-                        lineHeight: "1.6",
-                        border: "1px solid var(--semi-color-border)",
-                        borderRadius: 8,
-                        resize: "vertical",
-                        fontFamily: "inherit",
-                        color: "var(--semi-color-text-0)",
-                        backgroundColor: "var(--semi-color-bg-0)",
-                        outline: "none",
-                        boxSizing: "border-box",
-                    }}
+                    placeholder="编辑总结内容..."
                 />
-                <div
-                    className="summary-editor-actions"
-                    style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: 8,
-                        marginTop: 12,
-                    }}
-                >
+                <div className="summary-editor-actions">
                     <Button onClick={onCancel} disabled={saving}>
                         取消
                     </Button>

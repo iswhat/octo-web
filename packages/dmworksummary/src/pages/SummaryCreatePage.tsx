@@ -182,14 +182,14 @@ export default class SummaryCreatePage extends Component<SummaryCreatePageProps,
                     <TextArea
                         value={topic}
                         onChange={(val) => this.setState({ topic: val.slice(0, 1000) })}
-                        placeholder="输入你想总结的主题"
+                        placeholder="输入你想总结的主题，例如：总结本周项目进展、整理客户反馈要点..."
                         rows={4}
                         style={{ resize: "none", fontSize: 15 }}
                         autosize={false}
                         maxLength={1000}
                     />
                     {topic.length >= 1000 && (
-                        <div style={{ color: "var(--semi-color-danger)", fontSize: 12, marginTop: 4 }}>
+                        <div style={{ color: "var(--semi-color-warning)", fontSize: 12, marginTop: 4, padding: "0 12px 8px" }}>
                             已达到 1000 字符上限
                         </div>
                     )}

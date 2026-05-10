@@ -5,8 +5,9 @@ import {
     Toast,
     Banner,
     Dropdown,
+    Tag,
 } from "@douyinfe/semi-ui";
-import { IconEdit, IconMore, IconSend } from "@douyinfe/semi-icons";
+import { IconEdit, IconMore, IconSend, IconClock, IconTick, IconClose, IconInfoCircle, IconHistory, IconUser } from "@douyinfe/semi-icons";
 import { Channel, ChannelTypeGroup, ChannelTypePerson, MessageText, WKSDK } from "wukongimjssdk";
 import WKApp from "@octo/base/src/App";
 import { splitSummaryText } from "../utils/splitMessage";
@@ -504,10 +505,13 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
 
     renderProcessing() {
         return (
-            <div className="summary-detail-processing" style={{ padding: "32px 0", textAlign: "center", color: "var(--semi-color-text-2)" }}>
+            <div className="summary-detail-processing">
                 <Spin size="large" />
-                <div style={{ marginTop: 16, fontSize: 14 }}>
+                <h3 style={{ marginTop: 16 }}>
                     正在生成总结...
+                </h3>
+                <div style={{ fontSize: 14, color: "var(--semi-color-text-2)", marginTop: 8 }}>
+                    这可能需要一些时间，请耐心等待
                 </div>
             </div>
         );
@@ -518,11 +522,11 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
         if (!detail) return null;
         return (
             <div className="summary-detail-failed">
-                <div className="summary-detail-failed-icon">❌</div>
+                <div className="summary-detail-failed-icon">⚠️</div>
                 <h3>总结生成失败</h3>
                 {detail.error_message && (
                     <div className="summary-detail-failed-reason">
-                        失败原因：{detail.error_message}
+                        {detail.error_message}
                     </div>
                 )}
                 <div className="summary-detail-failed-meta">
@@ -538,18 +542,33 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
         if (!detail || !detail.result) return null;
         return (
             <div className="summary-detail-result">
-                <CitationText content={detail.result.content} citations={detail.result.citations || []} />
-                <div className="summary-detail-result-meta">
-                    <span>版本 {detail.result.version}</span>
-                    <span>·</span>
-                    <span>{detail.result.total_msg_count} 条消息</span>
-                    <span>·</span>
-                    <span>{formatDate(detail.result.generated_at)}</span>
+                <div className="summary-detail-result-header">
+                    <h3>📝 总结内容</h3>
+                    <div className="summary-detail-result-badges">
+                        <Tag color="blue" size="small" prefixIcon={<IconHistory />}>
+                            版本 {detail.result.version}
+                        </Tag>
+                        <Tag color="green" size="small">
+                            {detail.result.total_msg_count} 条消息
+                        </Tag>
+                        {detail.result_is_edited && detail.result_edited_at && (
+                            <Tag color="orange" size="small">
+                                已编辑
+                            </Tag>
+                        )}
+                    </div>
+                </div>
+                <div className="summary-detail-result-content">
+                    <CitationText content={detail.result.content} citations={detail.result.citations || []} />
+                </div>
+                <div className="summary-detail-result-footer">
+                    <span className="summary-detail-result-time">
+                        生成于 {formatDate(detail.result.generated_at)}
+                    </span>
                     {detail.result_is_edited && detail.result_edited_at && (
-                        <>
-                            <span>·</span>
-                            <span>已编辑 {formatDate(detail.result_edited_at)}</span>
-                        </>
+                        <span className="summary-detail-result-time">
+                            最后编辑 {formatDate(detail.result_edited_at)}
+                        </span>
                     )}
                 </div>
             </div>
@@ -557,11 +576,13 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
     }
 
     renderPersonalSummary() {
-        const { personalResult, personalLoading } = this.state;
+        const { personalResult, personalLoading, detail } = this.state;
         if (personalLoading) {
             return (
                 <div className="summary-detail-personal">
-                    <h3>我的总结</h3>
+                    <div className="summary-detail-section-header">
+                        <span>👤 我的总结</span>
+                    </div>
                     <Spin size="small" />
                 </div>
             );
@@ -569,16 +590,28 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
         if (!personalResult) return null;
         return (
             <div className="summary-detail-personal">
-                <h3>我的总结</h3>
-                <div className="summary-detail-personal-status">
-                    {personalResult.worker_status === 2 && !personalResult.submitted_at && this.state.members.length > 1 && (
-                        <Button size="small" theme="solid" onClick={this.handleSubmitPersonal}>
-                            提交给所有人
-                        </Button>
-                    )}
+                <div className="summary-detail-section-header">
+                    <span>👤 我的总结</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {detail && detail.permissions?.can_edit && !this.state.isEditing && (
+                            <Button
+                                size="small"
+                                theme="borderless"
+                                icon={<IconEdit />}
+                                onClick={this.handleStartEdit}
+                            >
+                                编辑
+                            </Button>
+                        )}
+                        {personalResult.worker_status === 2 && !personalResult.submitted_at && this.state.members.length > 1 && (
+                            <Button size="small" theme="solid" onClick={this.handleSubmitPersonal}>
+                                提交给所有人
+                            </Button>
+                        )}
+                    </div>
                 </div>
                 {personalResult.content && (
-                    <div className="summary-detail-personal-content">
+                    <div className="summary-detail-content-box">
                         <CitationText content={personalResult.content} citations={personalResult.citations || []} />
                     </div>
                 )}
@@ -594,12 +627,19 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
         if (submittedCount === 0) return null;
         return (
             <div className="summary-detail-team">
-                <h3>团队汇总</h3>
-                <SummaryContent content={detail.result.content} />
-                <div className="summary-detail-team-meta">
-                    <span>基于 {submittedCount} 人提交</span>
-                    <span>·</span>
-                    <span>版本 {detail.result.version}</span>
+                <div className="summary-detail-section-header">
+                    <span>👥 团队汇总</span>
+                    <div className="summary-detail-section-badges">
+                        <Tag color="cyan" size="small" prefixIcon={<IconUser />}>
+                            {submittedCount} 人提交
+                        </Tag>
+                        <Tag color="blue" size="small" prefixIcon={<IconHistory />}>
+                            版本 {detail.result.version}
+                        </Tag>
+                    </div>
+                </div>
+                <div className="summary-detail-content-box">
+                    <SummaryContent content={detail.result.content} />
                 </div>
             </div>
         );
@@ -617,27 +657,29 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
         }
         // 如果只有 1 个人（creator 自己），不显示成员状态区块
         if (members.length <= 1) return null;
-        const statusMap: Record<string, { icon: string; label: string }> = {
-            pending: { icon: "⏸", label: "待响应" },
-            accepted: { icon: "✅", label: "已同意" },
-            declined: { icon: "🚫", label: "已拒绝" },
-            processing: { icon: "⏳", label: "生成中" },
-            completed: { icon: "✅", label: "已完成" },
-            submitted: { icon: "✅", label: "已提交" },
+
+        const statusConfig: Record<string, { icon: React.ReactNode; label: string; type: "success" | "warning" | "danger" | "default" }> = {
+            pending: { icon: <IconClock />, label: "待响应", type: "warning" },
+            accepted: { icon: <IconTick />, label: "已同意", type: "success" },
+            declined: { icon: <IconClose />, label: "已拒绝", type: "danger" },
+            processing: { icon: <IconInfoCircle />, label: "生成中", type: "default" },
+            completed: { icon: <IconTick />, label: "已完成", type: "success" },
+            submitted: { icon: <IconTick />, label: "已提交", type: "success" },
         };
+
         return (
             <div className="summary-detail-members">
                 <h3>成员状态</h3>
                 <div className="summary-detail-members-list">
                     {members.map((m) => {
-                        const st = statusMap[m.status] || statusMap["pending"];
+                        const st = statusConfig[m.status] || statusConfig["pending"];
                         const isMe = m.user_id === WKApp.loginInfo.uid;
                         return (
                             <div key={m.user_id} className="summary-detail-member-item">
                                 <span className="summary-detail-member-name">{m.user_name}</span>
-                                <span className="summary-detail-member-status">
-                                    {st.icon} {st.label}
-                                </span>
+                                <Tag color={st.type} prefixIcon={st.icon} size="small">
+                                    {st.label}
+                                </Tag>
                                 {isMe && m.status === "pending" && (
                                     <span style={{ display: "inline-flex", gap: 4, marginLeft: 8 }}>
                                         <Button size="small" theme="solid" onClick={() => this.handleRespondToTask("accept")}>同意</Button>
@@ -671,7 +713,7 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
         const pending = members.filter((m) => !m.submitted_at || !m.content);
         if (submitted.length === 0 && pending.length === 0) return null;
         return (
-            <div className="summary-detail-participant-reports" style={{ marginTop: 16 }}>
+            <div className="summary-detail-participant-reports">
                 <h3>参与者报告</h3>
                 {submitted.map((m) => {
                     const expanded = !!expandedReports[m.user_id];
@@ -680,42 +722,37 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
                     return (
                         <div
                             key={m.user_id}
-                            style={{
-                                padding: "8px 12px",
-                                fontSize: 14,
-                                borderBottom: "1px solid var(--semi-color-border)",
-                                cursor: needsTruncate ? "pointer" : "default",
-                            }}
+                            className={`summary-detail-participant-report-item${needsTruncate ? " clickable" : ""}`}
                             onClick={() => needsTruncate && this.toggleReport(m.user_id)}
                         >
-                            <div style={{ fontWeight: 500, marginBottom: 4, color: "var(--semi-color-text-0)" }}>
-                                {m.user_name} · {formatDate(m.submitted_at!)}
+                            <div className="summary-detail-participant-report-header">
+                                <span>{m.user_name}</span>
+                                <span style={{ color: "var(--semi-color-text-3)", fontWeight: 400 }}>·</span>
+                                <span style={{ fontSize: 13, color: "var(--semi-color-text-2)", fontWeight: 400 }}>
+                                    {formatDate(m.submitted_at!)}
+                                </span>
                             </div>
-                            {expanded ? (
-                                <CitationText content={content} citations={m.citations || []} />
-                            ) : (
-                                <div style={{ color: "var(--semi-color-text-1)" }}>
-                                    {needsTruncate ? content.slice(0, 100) + "..." : content}
-                                </div>
-                            )}
+                            <div className="summary-detail-participant-report-content">
+                                {expanded ? (
+                                    <CitationText content={content} citations={m.citations || []} />
+                                ) : (
+                                    <div>
+                                        {needsTruncate ? content.slice(0, 100) + "..." : content}
+                                    </div>
+                                )}
+                            </div>
                             {needsTruncate && (
-                                <div style={{ marginTop: 4, fontSize: 12, color: "var(--semi-color-primary)" }}>
-                                    {expanded ? "收起" : "展开全部"}
+                                <div className="summary-detail-participant-report-toggle">
+                                    {expanded ? "收起 ▲" : "展开全部 ▼"}
                                 </div>
                             )}
                         </div>
                     );
                 })}
                 {pending.map((m) => (
-                    <div
-                        key={m.user_id}
-                        style={{
-                            padding: "8px 12px",
-                            color: "var(--semi-color-text-2)",
-                            fontSize: 14,
-                        }}
-                    >
-                        {m.user_name} · 等待提交...
+                    <div key={m.user_id} className="summary-detail-participant-report-pending">
+                        <IconClock style={{ fontSize: 14 }} />
+                        <span>{m.user_name} · 等待提交...</span>
                     </div>
                 ))}
             </div>
@@ -748,19 +785,12 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
         }
 
         return (
-            <div className="summary-detail-header" style={{ padding: "20px 24px 12px", display: "flex", flexDirection: "column", alignItems: "stretch", width: "100%", boxSizing: "border-box", gap: 0, marginBottom: 0 }}>
-                <div className="summary-detail-header-top" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, width: "100%" }}>
-                    <OverflowTooltip as="h2" className="summary-detail-title" style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 20, fontWeight: 600, lineHeight: "28px", color: "var(--semi-color-text-0)" }}>{detail?.title || "总结详情"}</OverflowTooltip>
-                    <div className="summary-detail-header-actions" style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, paddingTop: 2 }}>
-                        {detail && detail.status === TaskStatus.COMPLETED && detail.summary_mode === SummaryMode.BY_PERSON && detail.permissions?.can_edit && !this.state.isEditing && (
-                            <Button
-                                theme="borderless"
-                                icon={<IconEdit />}
-                                onClick={this.handleStartEdit}
-                            >
-                                编辑
-                            </Button>
-                        )}
+            <div className="summary-detail-header">
+                <div className="summary-detail-header-inner">
+                    <OverflowTooltip as="h2" className="summary-detail-title">
+                        {detail?.title || "总结详情"}
+                    </OverflowTooltip>
+                    <div className="summary-detail-header-actions">
                         {detail && detail.status === TaskStatus.COMPLETED && (
                             <Button
                                 theme="borderless"
@@ -815,110 +845,119 @@ export default class SummaryDetailPage extends Component<SummaryDetailPageProps,
             <div className="summary-detail-page">
                 {this.renderHeader()}
 
-                {loading && (
-                    <div className="summary-detail-loading">
-                        <Spin size="large" />
-                    </div>
-                )}
+                <div className="summary-detail-content-wrapper">
+                    <div className="summary-detail-content-inner">
+                        {loading && (
+                            <div className="summary-detail-loading">
+                                <Spin size="large" />
+                            </div>
+                        )}
 
-                {error && (
-                    <Banner
-                        type="warning"
-                        description="可能由网络波动或服务异常导致"
-                        closeIcon={null}
-                        style={{ marginBottom: 16 }}
-                        fullMode={false}
-                    >
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span>{error}</span>
-                            <Button size="small" onClick={() => this.loadDetail()}>重试</Button>
-                        </div>
-                    </Banner>
-                )}
+                        {error && (
+                            <Banner
+                                type="warning"
+                                description="可能由网络波动或服务异常导致"
+                                closeIcon={null}
+                                style={{ marginBottom: 16 }}
+                                fullMode={false}
+                            >
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span>{error}</span>
+                                    <Button size="small" onClick={() => this.loadDetail()}>重试</Button>
+                                </div>
+                            </Banner>
+                        )}
 
-                {detail && !loading && (() => {
-                    const myP = detail.participants?.find((p) => p.user_id === WKApp.loginInfo.uid);
-                    const isPendingInvite = myP != null && myP.status === ParticipantStatus.PENDING;
-                    return isPendingInvite ? (
-                        <div
-                            className="summary-detail-respond-banner"
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 12,
-                                padding: "12px 16px",
-                                marginBottom: 16,
-                                background: "var(--semi-color-primary-light-default)",
-                                borderRadius: 8,
-                            }}
-                        >
-                            <span style={{ flex: 1, color: "var(--semi-color-text-0)" }}>你被邀请参与此总结任务，是否同意？</span>
-                            <Button size="small" theme="solid" onClick={() => this.handleRespondToTask("accept")}>同意</Button>
-                            <Button size="small" onClick={() => this.handleRespondToTask("reject")}>拒绝</Button>
-                        </div>
-                    ) : null;
-                })()}
+                        {detail && !loading && (() => {
+                            const myP = detail.participants?.find((p) => p.user_id === WKApp.loginInfo.uid);
+                            const isPendingInvite = myP != null && myP.status === ParticipantStatus.PENDING;
+                            return isPendingInvite ? (
+                                <div
+                                    className="summary-detail-respond-banner"
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 12,
+                                        padding: "12px 16px",
+                                        marginBottom: 16,
+                                        background: "var(--semi-color-primary-light-default)",
+                                        borderRadius: 8,
+                                    }}
+                                >
+                                    <span style={{ flex: 1, color: "var(--semi-color-text-0)" }}>你被邀请参与此总结任务，是否同意？</span>
+                                    <Button size="small" theme="solid" onClick={() => this.handleRespondToTask("accept")}>同意</Button>
+                                    <Button size="small" onClick={() => this.handleRespondToTask("reject")}>拒绝</Button>
+                                </div>
+                            ) : null;
+                        })()}
 
-                {detail && !loading && (
-                    <>
-                        {detail.summary_mode === SummaryMode.BY_PERSON && (
+                        {detail && !loading && (
                             <>
-                                {this.state.isEditing && this.state.personalResult && detail.result_id ? (
-                                    <div className="summary-detail-personal">
-                                        <h3>我的总结</h3>
-                                        <SummaryEditor
-                                            taskId={detail.task_id}
-                                            baseResultId={detail.result_id}
-                                            initialContent={this.state.personalResult.content || ""}
-                                            onSave={this.handleEditSave}
-                                            onCancel={this.handleEditCancel}
-                                        />
-                                    </div>
-                                ) : (
-                                    this.renderPersonalSummary()
+                                {detail.summary_mode === SummaryMode.BY_PERSON && (
+                                    <>
+                                        {this.state.isEditing && this.state.personalResult && detail.result_id ? (
+                                            <div className="summary-detail-personal">
+                                                <h3>我的总结</h3>
+                                                <SummaryEditor
+                                                    taskId={detail.task_id}
+                                                    baseResultId={detail.result_id}
+                                                    initialContent={this.state.personalResult.content || ""}
+                                                    onSave={this.handleEditSave}
+                                                    onCancel={this.handleEditCancel}
+                                                />
+                                            </div>
+                                        ) : (
+                                            this.renderPersonalSummary()
+                                        )}
+                                        {this.renderTeamSummary()}
+                                        {this.renderMemberStatus()}
+                                        {this.renderParticipantReports()}
+                                    </>
                                 )}
-                                {this.renderTeamSummary()}
-                                {this.renderMemberStatus()}
-                                {this.renderParticipantReports()}
+
+                                {(detail.status === TaskStatus.PENDING || detail.status === TaskStatus.PROCESSING) &&
+                                    this.renderProcessing()
+                                }
+
+                                {detail.status === TaskStatus.FAILED && this.renderFailed()}
+
+                                {detail.status === TaskStatus.CANCELLED && (
+                                    <div className="summary-detail-cancelled">
+                                        <div style={{ fontSize: 48, marginBottom: 12 }}>🚫</div>
+                                        <p style={{ fontSize: 16, fontWeight: 500 }}>任务已取消</p>
+                                        <p style={{ fontSize: 14, color: "var(--semi-color-text-2)", marginTop: 8 }}>
+                                            此总结任务已被取消，不会继续执行
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* 单人时不显示"等待参与者确认"，因为creator自动接受 */}
+                                {detail.status === TaskStatus.WAITING_CONFIRM && this.state.members.length > 1 && (
+                                    <div className="summary-detail-waiting">
+                                        <div style={{ fontSize: 48, marginBottom: 12 }}>⏳</div>
+                                        <p style={{ fontSize: 16, fontWeight: 500 }}>等待参与者确认中</p>
+                                        <p style={{ fontSize: 14, color: "var(--semi-color-text-2)", marginTop: 8, marginBottom: 16 }}>
+                                            需要所有参与者确认后才能开始生成
+                                        </p>
+                                        <Button onClick={() => WKApp.routeLeft.push(<SummaryConfirmPage taskId={this.taskId} />)}>
+                                            查看确认状态
+                                        </Button>
+                                    </div>
+                                )}
+                                {/* 单人 WaitingConfirm 状态显示生成中 */}
+                                {detail.status === TaskStatus.WAITING_CONFIRM && this.state.members.length <= 1 && (
+                                    this.renderProcessing()
+                                )}
+
+                                {detail.status === TaskStatus.COMPLETED && detail.summary_mode !== SummaryMode.BY_PERSON && (
+                                    this.renderCompleted()
+                                )}
+
+                                <SelectedSourcesPanel sources={detail.sources} />
                             </>
                         )}
-
-                        {(detail.status === TaskStatus.PENDING || detail.status === TaskStatus.PROCESSING) &&
-                            this.renderProcessing()
-                        }
-
-                        {detail.status === TaskStatus.FAILED && this.renderFailed()}
-
-                        {detail.status === TaskStatus.CANCELLED && (
-                            <div className="summary-detail-cancelled">
-                                <p>任务已取消</p>
-                            </div>
-                        )}
-
-                        {/* 单人时不显示"等待参与者确认"，因为creator自动接受 */}
-                        {detail.status === TaskStatus.WAITING_CONFIRM && this.state.members.length > 1 && (
-                            <div className="summary-detail-waiting">
-                                <p>等待参与者确认中...</p>
-                                <Button onClick={() => WKApp.routeLeft.push(<SummaryConfirmPage taskId={this.taskId} />)}>
-                                    查看确认状态
-                                </Button>
-                            </div>
-                        )}
-                        {/* 单人 WaitingConfirm 状态显示生成中 */}
-                        {detail.status === TaskStatus.WAITING_CONFIRM && this.state.members.length <= 1 && (
-                            <div className="summary-detail-processing">
-                                <Spin size="large" />
-                                <p>正在生成中...</p>
-                            </div>
-                        )}
-
-                        {detail.status === TaskStatus.COMPLETED && detail.summary_mode !== SummaryMode.BY_PERSON && (
-                            this.renderCompleted()
-                        )}
-
-                        <SelectedSourcesPanel sources={detail.sources} />
-                    </>
-                )}
+                    </div>
+                </div>
 
                 <ScheduleConfigModal
                     visible={showScheduleConfig}
