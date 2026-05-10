@@ -22,6 +22,7 @@ import { Toast } from "../../utils/toast";
 import UserName from "../../ui/UserName";
 import LinkChannelsModal from "../../ui/LinkChannelsModal";
 import OwnerEditor from "../../ui/OwnerEditor";
+import AnchorPopover from "../../ui/AnchorPopover";
 import WKAvatar from "@octo/base/src/Components/WKAvatar";
 import { Channel, ChannelTypePerson } from "wukongimjssdk";
 import { WKApp } from "@octo/base";
@@ -54,6 +55,13 @@ export default function MatterDetailPanel({
   const [expandedTimelines, setExpandedTimelines] = useState<Set<string>>(
     new Set(),
   );
+  // "查看原消息上下文" 弹框状态: 记录要查的消息 id 列表 + 所在 channel
+  const [anchor, setAnchor] = useState<{
+    channelId: string;
+    channelType: number;
+    channelName: string;
+    messageIds: string[];
+  } | null>(null);
   // 拉取 timeline (matter 加载时 + 每次展开时都调, 保证数据新鲜)。
   // 后端 GET /matters/:id/timeline 不支持按 channel 过滤, 返回整个 Matter
   // 下的全量 timeline, 前端按 entry.channel_id 本地分配到各 channel 卡片。
@@ -565,7 +573,21 @@ export default function MatterDetailPanel({
                           </div>
                         );
                       }
-                      return <TimelinePanel entries={chEntries} />;
+                      return (
+                        <TimelinePanel
+                          entries={chEntries}
+                          onShowAnchor={(entry) =>
+                            setAnchor({
+                              channelId: ch.channel_id,
+                              channelType: ch.channel_type,
+                              channelName:
+                                ch.channel_name ||
+                                ch.channel_id.slice(0, 8),
+                              messageIds: entry.source_msgs || [],
+                            })
+                          }
+                        />
+                      );
                     })()}
                 </div>
               ))
@@ -585,7 +607,26 @@ export default function MatterDetailPanel({
             {timeline.length === 0 ? (
               <div className="wk-mp-empty-tab">暂无时间线记录</div>
             ) : (
-              <TimelinePanel entries={timeline} />
+              <TimelinePanel
+                entries={timeline}
+                onShowAnchor={(entry) => {
+                  // 改变记录 tab 下每条 entry 可能属于不同 channel,
+                  // 用 matter.channels 按 entry.channel_id 反查 channel_name
+                  if (!entry.channel_id || entry.channel_type === undefined) {
+                    return;
+                  }
+                  const ch = channels.find(
+                    (c) => c.channel_id === entry.channel_id,
+                  );
+                  setAnchor({
+                    channelId: entry.channel_id,
+                    channelType: entry.channel_type,
+                    channelName:
+                      ch?.channel_name || entry.channel_id.slice(0, 8),
+                    messageIds: entry.source_msgs || [],
+                  });
+                }}
+              />
             )}
           </div>
         )}
@@ -606,6 +647,17 @@ export default function MatterDetailPanel({
         onClose={() => setLinkModalOpen(false)}
         onLinked={handleLinked}
       />
+
+      {/* 原消息上下文弹框 */}
+      {anchor && (
+        <AnchorPopover
+          channelId={anchor.channelId}
+          channelType={anchor.channelType}
+          channelName={anchor.channelName}
+          messageIds={anchor.messageIds}
+          onClose={() => setAnchor(null)}
+        />
+      )}
     </main>
   );
 }
@@ -870,7 +922,17 @@ function formatTime(iso: string): string {
   });
 }
 
-function TimelinePanel({ entries }: { entries: TimelineEntry[] }) {
+function TimelinePanel({
+  entries,
+  onShowAnchor,
+}: {
+  entries: TimelineEntry[];
+  /**
+   * 点击 "查看原消息上下文" 时调用, 由父组件负责弹 AnchorPopover。
+   * 不传: 按钮 disabled (无法查看, 通常是条目没有 source_msgs 字段)。
+   */
+  onShowAnchor?: (entry: TimelineEntry) => void;
+}) {
   const [sortNewest, setSortNewest] = useState(true);
 
   // 排序
@@ -965,25 +1027,45 @@ function TimelinePanel({ entries }: { entries: TimelineEntry[] }) {
                       {e.attachments.length} 附件
                     </span>
                   )}
-                  {/* ↗ 原消息 */}
-                  <button
-                    type="button"
-                    className="wk-mp-tl__anchor-btn"
-                    title="查看原消息上下文"
-                    onClick={() => Toast.info("跳转到原消息")}
-                  >
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    ↗ 原消息
-                  </button>
+                  {/* ↗ 原消息: 只有 entry 带 source_msgs 时才可点 */}
+                  {(() => {
+                    const hasSource =
+                      !!onShowAnchor &&
+                      Array.isArray(e.source_msgs) &&
+                      e.source_msgs.length > 0;
+                    return (
+                      <button
+                        type="button"
+                        className="wk-mp-tl__anchor-btn"
+                        title={
+                          hasSource
+                            ? "查看原消息上下文"
+                            : "无原消息关联"
+                        }
+                        disabled={!hasSource}
+                        style={
+                          !hasSource
+                            ? { opacity: 0.4, cursor: "not-allowed" }
+                            : undefined
+                        }
+                        onClick={() => {
+                          if (hasSource && onShowAnchor) onShowAnchor(e);
+                        }}
+                      >
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        ↗ 原消息
+                      </button>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
