@@ -16,25 +16,29 @@ import { ChannelInfoListener } from "wukongimjssdk";
 import { ChannelInfo, ChannelTypePerson } from "wukongimjssdk";
 import { Convert } from "../../Service/Convert";
 import { isRealnameVerified } from "../../Utils/displayName";
+import { resolveRealnameVerifyUrl } from "./realnameVerifyUrl";
 
 /**
  * MeInfoVM — 自己的「个人信息 / 设置」页面 ViewModel
  *
  * YUJ-359 / GH #1121 接入实名认证。
- * YUJ-391 / Aegis Phase 2a：「去认证」入口改为直跳 Aegis 账户页
- *   （https://accounts.xming.ai/profile/info?anchor=verification），不再
- *   调用 verify-service 翻译接口。
+ * YUJ-391 / Aegis Phase 2a：「去认证」入口改为直跳 Aegis 账户页, 不再调用
+ *   verify-service 翻译接口。
+ * YUJ-396 / GH #1174：Aegis 域名改为按环境从后端 appconfig 下发的
+ *   `oidc_providers[].account_url` 字段读, 而非硬编码 prod URL。
+ *   im-test 会拿到 `accounts-test.imocto.cn`, im-prod 拿到 `accounts.xming.ai`,
+ *   和 NavSettingsPanel 「账户中心」入口口径一致。
  *
  *   - 「名字」行右侧展示 ✓ + 「已实名」tag（已认证）
  *   - 新增「账号安全 · 实名认证」section
  *     · 已认证：展示 「已认证 · {年-月}」不可点
- *     · 未认证：展示「去认证」CTA，点击 `window.open(AEGIS_VERIFY_URL, '_blank')`
+ *     · 未认证：展示「去认证」CTA，点击 `window.open(<account_url>/profile/info?anchor=verification, '_blank')`
  *       直接跳到 Aegis 账户页的实名认证锚点。
  *   - Aegis 完成认证后会以 `return_to` 带 `?verified=1` 回跳，由本 VM 的
  *     didMount 兜底 handler + 全局 useRealnameVerifiedLandingHandler 捕获，
  *     重新 `reloadSelfProfile()` 同步新状态。
  *   - 老版本后端兜底仍保留：dmworkim /v1/internal/verify-token 现在返回的
- *     也是 Aegis URL，老 App 客户端无需改动即可工作。
+ *     也是按环境下发的 Aegis URL，老 App 客户端无需改动即可工作。
  */
 export class MeInfoVM extends ProviderListener {
 
@@ -125,26 +129,56 @@ export class MeInfoVM extends ProviderListener {
 
     /**
      * YUJ-391 / Aegis Phase 2a：「去认证」入口直跳 Aegis 账户页。
+     * YUJ-396 / GH #1174：Aegis 域名改为按环境从后端 appconfig 下发的
+     *   `oidc_providers[].account_url` 读, 不再硬编码 prod URL。
      *
      * 不再调用 dmworkim `/v1/internal/verify-token` 翻译接口 —— Web 端直接
      * `window.open` 到 Aegis 的实名认证锚点。Aegis 完成后会 redirect 回
      * 本页（带 ?verified=1），由 didMount 的兜底 handler + 全局
      * useRealnameVerifiedLandingHandler 触发 reloadSelfProfile 同步状态。
      *
+     * URL 解析口径（resolveRealnameVerifyUrl）：
+     *   - 按 loginInfo.loginProvider 在 remoteConfig.oidcProviders 里查
+     *     对应 provider 的 accountUrl, 拼 `${accountUrl}/profile/info?anchor=verification`。
+     *     与 NavSettingsPanel「账户中心」入口口径一致（accounts-test.imocto.cn
+     *     on im-test / accounts.xming.ai on im-prod, 后端下发）。
+     *   - loginProvider=local / 空 / provider 无 account_url / provider 不在
+     *     下发列表里 → Toast 明示, 不跳转。严禁回退到任何硬编码 prod 域。
+     *
      * 兜底：弹窗被浏览器拦截时降级为当前 tab 跳转，确保认证流程能走下去。
      *
      * 老 App 兜底：dmworkim 的 verify-token 接口仍然保留，只是现在返回
-     * Aegis URL 而非 verify-service URL，老版本客户端无需改动。
+     * 按环境下发的 Aegis URL，老版本客户端无需改动。
      */
     startRealnameVerify() {
-        // 写成常量而非 WKApp.config 可配置值：Aegis 域名目前在全公司范围统一，
-        // 不存在 per-环境覆盖；未来若需分环境再提到 config / endpoint。
-        const AEGIS_VERIFY_URL = "https://accounts.xming.ai/profile/info?anchor=verification"
+        // 读按环境下发的 account_url —— 防止把 im-test 用户甩到 prod Aegis。
+        // 具体行为合约见 resolveRealnameVerifyUrl 的 JSDoc 和 __tests__/realnameVerifyUrl.test.ts。
+        const resolved = resolveRealnameVerifyUrl(
+            WKApp.loginInfo.loginProvider,
+            WKApp.remoteConfig.oidcProviders,
+        )
+        if (!resolved.ok) {
+            switch (resolved.reason) {
+                case "no_login_provider":
+                    // 理论上到这里时用户已经登录；空 provider 一般是 SID 存储格式历史遗留,
+                    // 展示同 local 的提示即可,引导用户联系管理员。
+                case "local_account":
+                    Toast.error("当前账号不支持在线实名认证，请联系管理员")
+                    break
+                case "no_account_url":
+                    // appconfig 没下发对应 provider 的 account_url：要么配置漏了,
+                    // 要么用户登录用的 provider 已被后端下掉。兜底 Toast, 不跳 prod。
+                    Toast.error("当前环境未配置实名认证入口，请稍后再试或联系管理员")
+                    break
+            }
+            return
+        }
+        const verifyUrl = resolved.url
         // 新 tab 打开，noopener 防止 Aegis 反操作当前窗口
-        const opened = window.open(AEGIS_VERIFY_URL, "_blank", "noopener,noreferrer")
+        const opened = window.open(verifyUrl, "_blank", "noopener,noreferrer")
         if (!opened) {
             // 弹窗被浏览器拦截时降级为当前 tab 跳转
-            window.location.href = AEGIS_VERIFY_URL
+            window.location.href = verifyUrl
         }
     }
 
