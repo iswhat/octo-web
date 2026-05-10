@@ -264,6 +264,29 @@
   gap: 6px;
 }
 
+.wk-mp-people__item .wk-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.wk-mp-people__avatars {
+  display: inline-flex;
+  align-items: center;
+}
+
+.wk-mp-people__avatar-wrap {
+  display: inline-flex;
+  border: 1.5px solid var(--wk-bg-surface, #fff);
+  border-radius: 50%;
+}
+
+.wk-mp-people__avatar-wrap .wk-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
 .wk-mp-people__name {
   color: var(--wk-text-secondary, #3f3f46);
   font-weight: 500;

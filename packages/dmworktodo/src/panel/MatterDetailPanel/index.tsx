@@ -3,6 +3,8 @@ import type { MatterDetail, MatterStatus } from '../../bridge/types';
 import { getMatter, transitionMatter } from '../../api/todoApi';
 import { Toast } from '../../utils/toast';
 import UserName from '../../ui/UserName';
+import WKAvatar from '@octo/base/src/Components/WKAvatar';
+import { Channel, ChannelTypePerson } from 'wukongimjssdk';
 import './index.css';
 
 export interface MatterDetailPanelProps {
@@ -114,18 +116,24 @@ export default function MatterDetailPanel({ channelId, channelType: _channelType
         {/* ── 创建人 / 负责人 ── */}
         <div className="wk-mp-people">
           <div className="wk-mp-people__item">
-            <span className="wk-mp-people__avatar">
-              <UserName uid={matter.creator_id} className="wk-mp-people__name" />
-            </span>
+            <WKAvatar channel={new Channel(matter.creator_id, ChannelTypePerson)} style={{ width: 16, height: 16 }} />
+            <UserName uid={matter.creator_id} className="wk-mp-people__name" />
             <span className="wk-mp-people__role">创建人</span>
           </div>
           {assignees.length > 0 && (
             <div className="wk-mp-people__item">
-              <span className="wk-mp-people__avatar">
+              <span className="wk-mp-people__avatars">
+                {assignees.map((a, i) => (
+                  <span key={a.user_id} className="wk-mp-people__avatar-wrap" style={{ marginLeft: i > 0 ? -6 : 0, zIndex: assignees.length - i }}>
+                    <WKAvatar channel={new Channel(a.user_id, ChannelTypePerson)} style={{ width: 16, height: 16 }} />
+                  </span>
+                ))}
+              </span>
+              <span className="wk-mp-people__name">
                 {assignees.map((a, i) => (
                   <span key={a.user_id}>
                     {i > 0 && '、'}
-                    <UserName uid={a.user_id} className="wk-mp-people__name" />
+                    <UserName uid={a.user_id} />
                   </span>
                 ))}
               </span>
@@ -258,3 +266,4 @@ function StatusPicker({ status, onChange }: { status: MatterStatus; onChange: (s
     </span>
   );
 }
+
