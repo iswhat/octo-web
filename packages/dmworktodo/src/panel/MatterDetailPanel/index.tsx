@@ -69,23 +69,55 @@ export default function MatterDetailPanel({
     y: number;
   } | null>(null);
   // 拉取 timeline (matter 加载时 + 每次展开时都调, 保证数据新鲜)。
-  // 后端 GET /matters/:id/timeline 不支持按 channel 过滤, 返回整个 Matter
-  // 下的全量 timeline, 前端按 entry.channel_id 本地分配到各 channel 卡片。
-  const loadTimeline = useCallback(async () => {
-    if (!matterId) {
-      setTimeline([]);
-      return;
-    }
-    setTimelineLoading(true);
-    try {
-      const res = await listTimeline(matterId, { limit: 50 });
-      setTimeline(res.data || []);
-    } catch {
-      setTimeline([]);
-    } finally {
-      setTimelineLoading(false);
-    }
-  }, [matterId]);
+  //
+  // 后端 GET /matters/:id/timeline 支持 source_channel_id 查询参数
+  // (todos/internal/service/timeline_svc.go:25 "filters by
+  // matter_timelines.source_channel_id when non-empty"):
+  //   - 传: 只返回该群的 timeline 条目 (服务端 WHERE 过滤, 省带宽)
+  //   - 不传: 返回整个 Matter 下全量 timeline
+  //
+  // 调用方:
+  //   - 展开某群卡片时传 sourceChannelId, 只拉本群的条目 (省带宽)
+  //   - matter 加载 + 变更记录 tab 不传, 拿全量用于计数和分群
+  //
+  // 合并策略: 传 sourceChannelId 时拿到的是子集, 不能覆盖已有的其他群
+  // 数据。按 entry.id 做去重合并: 本次结果 + 历史里不属于本群的条目
+  // (本群的历史条目让新数据替代, 保证新鲜)。不传时是全量, 直接覆盖。
+  const loadTimeline = useCallback(
+    async (sourceChannelId?: string) => {
+      if (!matterId) {
+        setTimeline([]);
+        return;
+      }
+      setTimelineLoading(true);
+      try {
+        const params: { limit: number; source_channel_id?: string } = {
+          limit: 50,
+        };
+        if (sourceChannelId) params.source_channel_id = sourceChannelId;
+        const res = await listTimeline(matterId, params);
+        const fresh = res.data || [];
+        if (sourceChannelId) {
+          // 子集响应: 保留 state 里其他群的条目, 用 fresh 替换本群的
+          setTimeline((prev) => {
+            const keep = prev.filter(
+              (e) => e.source_channel_id !== sourceChannelId,
+            );
+            return [...keep, ...fresh];
+          });
+        } else {
+          // 全量响应: 直接覆盖
+          setTimeline(fresh);
+        }
+      } catch {
+        if (!sourceChannelId) setTimeline([]);
+        // 子集请求失败时不清空别人的数据
+      } finally {
+        setTimelineLoading(false);
+      }
+    },
+    [matterId],
+  );
   const toggleTimeline = useCallback(
     (chId: string) => {
       setExpandedTimelines((prev) => {
@@ -94,8 +126,10 @@ export default function MatterDetailPanel({
           next.delete(chId);
         } else {
           next.add(chId);
-          // 每次展开时重新拉, 避免 matter 加载后新产生的 timeline 看不到
-          loadTimeline();
+          // 展开时按本群过滤拉 (source_channel_id), 减少带宽。
+          // chId 这里是 matter_channels.channel_id, 也就是真实 IM 群号,
+          // 跟后端 timeline_entries.source_channel_id 同一份数据。
+          loadTimeline(chId);
         }
         return next;
       });
