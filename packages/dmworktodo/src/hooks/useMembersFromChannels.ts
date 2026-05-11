@@ -55,6 +55,7 @@ export function useMembersFromChannels(
     useEffect(() => {
         if (!enabled || channels.length === 0) {
             setMembers([]);
+            setLoading(false);
             return;
         }
 
@@ -98,6 +99,9 @@ export function useMembersFromChannels(
             setMembers(merged);
             setLoading(false);
         });
+
+        // cleanup: 递增 requestId 使当前请求结果失效, 防止 unmount/disabled 后写 state
+        return () => { requestIdRef.current++; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [channelsKey, enabled, limitPerChannel]);
 

@@ -239,15 +239,19 @@ export default function MatterDetailPanel({
       setMatter(null);
       return;
     }
+    let stale = false;
     setLoading(true);
     setError(null);
     getMatter(matterId, channelId || undefined)
-      .then(setMatter)
+      .then((data) => { if (!stale) setMatter(data); })
       .catch((err) => {
-        setError(err?.message || "加载失败");
-        setMatter(null);
+        if (!stale) {
+          setError(err?.message || "加载失败");
+          setMatter(null);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
   }, [matterId, channelId]);
 
   // Fetch timeline when matter loads. 展开时还会再拉一次 (loadTimeline)。
@@ -458,6 +462,17 @@ export default function MatterDetailPanel({
   const displaySourceName =
     liveSourceName || matter.source_name || "未知群聊";
 
+  // 来源群成员判断: 跟关联群卡片同逻辑, 用 toParentGroupNo + myGroupNos 判断
+  const isSourceMember = (() => {
+    if (!matter.source_channel_id) return true; // 无来源群, 不限制
+    if (myGroupsFailed) return false; // 拉取失败保守处理
+    const parentNo = toParentGroupNo(
+      matter.source_channel_id,
+      matter.source_channel_type || 2,
+    );
+    return myGroupNos.has(parentNo);
+  })();
+
   const tabs: {
     id: "channels" | "changelog";
     label: string;
@@ -550,9 +565,9 @@ export default function MatterDetailPanel({
           />
           {matter.source_channel_id && (
             <div
-              className={`wk-mp-goal__source${matter.source_msgs && matter.source_msgs.length > 0 ? " wk-mp-goal__source--clickable" : ""}`}
+              className={`wk-mp-goal__source${isSourceMember && matter.source_msgs && matter.source_msgs.length > 0 ? " wk-mp-goal__source--clickable" : ""}`}
               onClick={(ev) => {
-                if (matter.source_msgs && matter.source_msgs.length > 0) {
+                if (isSourceMember && matter.source_msgs && matter.source_msgs.length > 0) {
                   const rect = ev.currentTarget.getBoundingClientRect();
                   setAnchor({
                     channelId: matter.source_channel_id!,
@@ -564,12 +579,14 @@ export default function MatterDetailPanel({
                 }
               }}
               title={
-                matter.source_msgs && matter.source_msgs.length > 0
+                isSourceMember && matter.source_msgs && matter.source_msgs.length > 0
                   ? "点击查看原消息上下文"
-                  : undefined
+                  : !isSourceMember
+                    ? "您未加入该群"
+                    : undefined
               }
               style={
-                matter.source_msgs && matter.source_msgs.length > 0
+                isSourceMember && matter.source_msgs && matter.source_msgs.length > 0
                   ? { cursor: "pointer" }
                   : undefined
               }
@@ -584,8 +601,12 @@ export default function MatterDetailPanel({
               >
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-              <span>来自 #{displaySourceName}</span>
-              {matter.source_msgs && matter.source_msgs.length > 0 && (
+              {isSourceMember ? (
+                <span>来自 #{displaySourceName}</span>
+              ) : (
+                <span style={{ filter: "blur(4px)", userSelect: "none" }}>来自 #████</span>
+              )}
+              {isSourceMember && matter.source_msgs && matter.source_msgs.length > 0 && (
                 <span className="wk-mp-goal__source-anchor">↗</span>
               )}
               <span className="wk-mp-goal__source-sep">·</span>
