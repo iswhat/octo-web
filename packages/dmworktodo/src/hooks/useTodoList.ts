@@ -49,13 +49,16 @@ export function useMatterList({
   const filtersKey = useMemo(() => JSON.stringify(filters), [filters]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const load = useCallback(async (append = false) => {
+  const load = useCallback(async (append = false, silent = false) => {
     // 发起新请求前 abort 掉上一次, 避免并发污染和 StrictMode 双发
     abortCtrlRef.current?.abort();
     const ctrl = new AbortController();
     abortCtrlRef.current = ctrl;
 
-    if (!append) setLoading(true);
+    // silent 模式: 后台刷新 (如 matter-updated 广播触发), 不显示 loading,
+    // 避免列表刷新时闪一下 "加载中" 破坏阅读体验。只在首次/过滤器变更时
+    // 显示 loading。
+    if (!append && !silent) setLoading(true);
     try {
       const params: MatterListParams = { ...filters, limit: pageSize };
       if (append && cursorRef.current) params.cursor = cursorRef.current;
@@ -91,7 +94,8 @@ export function useMatterList({
 
   const reload = useCallback(() => {
     cursorRef.current = undefined;
-    load(false);
+    // silent 模式: 事件驱动的后台刷新, 不触发 loading 态, 避免列表闪烁
+    load(false, true);
   }, [load]);
 
   const loadMore = useCallback(() => {

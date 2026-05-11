@@ -542,6 +542,34 @@ textarea.wk-mp-goal__text--editing {
   transition: filter 0.3s ease, opacity 0.3s ease;
 }
 
+/* 成员关系加载中: shimmer 骨架占位, 不暴露群名, 不闪烁
+   慢网络下仍能看到"正在加载"的反馈而非先模糊再清晰 */
+.wk-mp-channels__card-name--skeleton,
+.wk-mp-goal__source-skeleton {
+  display: inline-block;
+  min-width: 64px;
+  height: 0.85em;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--wk-bg-elevated, #f4f4f5) 0%,
+    var(--wk-bg-hover, #e4e4e7) 50%,
+    var(--wk-bg-elevated, #f4f4f5) 100%
+  );
+  background-size: 200% 100%;
+  animation: wk-mp-skeleton-shimmer 1.2s ease-in-out infinite;
+  vertical-align: baseline;
+}
+
+@keyframes wk-mp-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 /* 未加入群的 "不在群" 小徽章 (对齐原型 v19 ChannelDigestItem 右侧标签): 
    灰底 + 边框 + 小锁图标 + "不在群" 文字。跟 card-name 在同一行,
    让用户一眼看出 "是这个群, 但我没权限" */

@@ -416,7 +416,7 @@ export default function MatterDetailPanel({
   // 拉取当前用户加入的所有群, 用于判断 Matter 关联群聊里哪些是我没加入的:
   //   - 没加入的群: 群名模糊展示, 时间线条目不展示 "↗ 原消息" (权限不允许)
   //   - 拉取失败时 failed=true, 保守处理成 "全部未加入" (宁可多遮)
-  const { groupNos: myGroupNos, failed: myGroupsFailed } = useMyGroups();
+  const { groupNos: myGroupNos, loading: myGroupsLoading, failed: myGroupsFailed } = useMyGroups();
 
   // ── UI/数据分离: 为 ui/ 组件提供 renderAvatar / renderUserName ──
   const renderAvatar = useCallback(
@@ -670,9 +670,9 @@ export default function MatterDetailPanel({
           />
           {matter.source_channel_id && (
             <div
-              className={`wk-mp-goal__source${isSourceMember && matter.source_msgs && matter.source_msgs.length > 0 ? " wk-mp-goal__source--clickable" : ""}`}
+              className={`wk-mp-goal__source${!myGroupsLoading && isSourceMember && matter.source_msgs && matter.source_msgs.length > 0 ? " wk-mp-goal__source--clickable" : ""}`}
               onClick={(ev) => {
-                if (isSourceMember && matter.source_msgs && matter.source_msgs.length > 0) {
+                if (!myGroupsLoading && isSourceMember && matter.source_msgs && matter.source_msgs.length > 0) {
                   const rect = ev.currentTarget.getBoundingClientRect();
                   setAnchor({
                     channelId: matter.source_channel_id!,
@@ -684,14 +684,16 @@ export default function MatterDetailPanel({
                 }
               }}
               title={
-                isSourceMember && matter.source_msgs && matter.source_msgs.length > 0
-                  ? "点击查看原消息上下文"
-                  : !isSourceMember
-                    ? "您未加入该群"
-                    : undefined
+                myGroupsLoading
+                  ? "正在加载群信息..."
+                  : isSourceMember && matter.source_msgs && matter.source_msgs.length > 0
+                    ? "点击查看原消息上下文"
+                    : !isSourceMember
+                      ? "您未加入该群"
+                      : undefined
               }
               style={
-                isSourceMember && matter.source_msgs && matter.source_msgs.length > 0
+                !myGroupsLoading && isSourceMember && matter.source_msgs && matter.source_msgs.length > 0
                   ? { cursor: "pointer" }
                   : undefined
               }
@@ -706,12 +708,16 @@ export default function MatterDetailPanel({
               >
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-              {isSourceMember ? (
+              {myGroupsLoading ? (
+                <span className="wk-mp-goal__source-skeleton" aria-label="加载中">
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                </span>
+              ) : isSourceMember ? (
                 <span>来自 #{displaySourceName}</span>
               ) : (
                 <span style={{ filter: "blur(2.5px)", opacity: 0.35, userSelect: "none", transition: "filter 0.3s ease, opacity 0.3s ease" }}>来自 #████</span>
               )}
-              {isSourceMember && matter.source_msgs && matter.source_msgs.length > 0 && (
+              {!myGroupsLoading && isSourceMember && matter.source_msgs && matter.source_msgs.length > 0 && (
                 <span className="wk-mp-goal__source-anchor">↗</span>
               )}
               <span className="wk-mp-goal__source-sep">·</span>
@@ -822,9 +828,10 @@ export default function MatterDetailPanel({
                         channelType={ch.channel_type}
                         fallback={ch.channel_name}
                         blur={!isMember}
+                        loading={myGroupsLoading}
                       />
                     </span>
-                    {!isMember && <NotMemberBadge />}
+                    {!myGroupsLoading && !isMember && <NotMemberBadge />}
                     <span className="wk-mp-channels__card-time">
                       {new Date(ch.created_at).toLocaleDateString("zh-CN", {
                         month: "numeric",
@@ -1491,6 +1498,7 @@ function ChannelNameLabel({
   channelType,
   fallback,
   blur,
+  loading,
 }: {
   channelId: string;
   channelType: number;
@@ -1501,8 +1509,25 @@ function ChannelNameLabel({
    * 被遮罩的内容。
    */
   blur?: boolean;
+  /**
+   * 成员关系拉取中传 true: 显示 shimmer 骨架占位, 避免在权限未知时
+   * 先渲染模糊或明文群名造成误导。跟"先模糊再清晰"的闪烁体验相比,
+   * 骨架占位更稳重, 也对慢网络更友好。
+   */
+  loading?: boolean;
 }) {
   const live = useChannelName(channelId, channelType);
+  if (loading) {
+    return (
+      <span
+        className="wk-mp-channels__card-name--skeleton"
+        aria-label="加载中"
+        role="presentation"
+      >
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </span>
+    );
+  }
   if (blur) {
     return (
       <span
