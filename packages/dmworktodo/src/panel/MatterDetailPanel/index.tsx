@@ -695,7 +695,7 @@ export default function MatterDetailPanel({
               {isSourceMember ? (
                 <span>来自 #{displaySourceName}</span>
               ) : (
-                <span style={{ filter: "blur(4px)", userSelect: "none" }}>来自 #████</span>
+                <span style={{ filter: "blur(2.5px)", opacity: 0.35, userSelect: "none", transition: "filter 0.3s ease, opacity 0.3s ease" }}>来自 #████</span>
               )}
               {isSourceMember && matter.source_msgs && matter.source_msgs.length > 0 && (
                 <span className="wk-mp-goal__source-anchor">↗</span>
@@ -1501,7 +1501,7 @@ function ChannelNameLabel({
     );
   }
   const display = live || fallback || channelId.slice(0, 8);
-  return <>{display}</>;
+  return <span className="wk-mp-channels__card-name--clear">{display}</span>;
 }
 
 // ─── NotMemberBadge (对齐原型 v19: '不在群' 小徽章) ──

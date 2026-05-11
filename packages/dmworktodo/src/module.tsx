@@ -515,11 +515,54 @@ function GlobalMatterLinkMenu() {
 
   return (
     <>
+      {/* Loading 遮罩: 同步进展期间阻止所有交互 (关闭菜单/工具栏/点击其他地方) */}
+      {loading && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255,255,255,0.4)",
+            cursor: "wait",
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{
+              padding: "12px 20px",
+              borderRadius: 8,
+              background: "var(--wk-bg-elevated, #fff)",
+              boxShadow: "var(--wk-shadow-md, 0 4px 12px rgba(0,0,0,0.08))",
+              fontSize: 13,
+              color: "var(--wk-text-secondary, #3f3f46)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                width: 14,
+                height: 14,
+                border: "2px solid var(--wk-border-default, #e4e4e7)",
+                borderTopColor: "var(--wk-color-accent, #7f3bf5)",
+                borderRadius: "50%",
+                animation: "wk-btn-spin 0.6s linear infinite",
+              }}
+            />
+            同步中...
+          </div>
+        </div>
+      )}
       {anchor && (
         <MatterLinkMenu
           anchorRef={anchorRef}
           matters={matters}
-          onClose={() => setAnchor(null)}
+          onClose={() => { if (!loading) setAnchor(null); }}
           onCreate={() => {
             setAnchor(null);
             setShowCreate(true);
