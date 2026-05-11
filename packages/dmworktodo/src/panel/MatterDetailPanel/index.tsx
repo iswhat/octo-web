@@ -437,8 +437,11 @@ export default function MatterDetailPanel({
     return list;
   })();
 
-  // 转发权限 (PRD §5.2 要点 [1]): 只给发起人 + 负责人, 关联成员按钮直接隐藏。
-  // 条件跟 canEditOwner 一致, 但语义上是两个独立规则, 分开命名避免耦合。
+  // 头部 "关联新群" 按钮的权限: 先沿用 canEditOwner (发起人 + 负责人 可见)。
+  // PRD §5.2 要点 [3] 允许关联成员多选关联 / 一键拉群, 但那是 IM 多选触发
+  // 的路径; 详情页头部这个入口的可见性目前跟 '能改负责人' 一致, 防止关联
+  // 成员在详情页直接加群 (走 IM 多选路径更可控)。要放宽的话把 canForward
+  // 改成 true 即可, 不影响后端权限 (后端仍然按发起/负责/参与者判)。
   const canForward = canEditOwner;
 
   const formatDeadline = (d: string) => {
@@ -494,7 +497,7 @@ export default function MatterDetailPanel({
               <button
                 type="button"
                 className="wk-mp-header__action"
-                title="转发"
+                title="关联新群"
                 onClick={handleLinkChannel}
               >
                 <svg
@@ -505,11 +508,10 @@ export default function MatterDetailPanel({
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                  <polyline points="16 6 12 2 8 6" />
-                  <line x1="12" y1="2" x2="12" y2="15" />
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-                转发
+                关联新群
               </button>
             )}
             <button
