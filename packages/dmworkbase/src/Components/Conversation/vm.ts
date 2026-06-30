@@ -1340,6 +1340,13 @@ export default class ConversationVM extends ProviderListener {
     // 刷新消息表情回应：收到 syncMessageReaction CMD 后重新拉取本频道最近一页
     // 消息（reactions 由 Convert.toMessage 聚合带出），把新的 reactions 合并进
     // 已渲染的对应 message，再重渲染。CMD 不带 message_id，所以按页 diff 合并。
+    //
+    // 已知限制（平台级，非本改动引入）：CMDSyncMessageReaction 全平台都不带
+    // message_id（user 端 addOrCancelReaction 与 bot 端同款），所以这里只能重拉
+    // 最新一页。对一条**已加载但不在最新页**的历史消息加/删 reaction，当前列表
+    // 不会实时更新，直到用户翻页/重载。user 表情有完全相同的限制。彻底修复需让
+    // CMD 携带 message_id 后做 targeted refresh（user+bot+web 同步改），属独立
+    // follow-up，不在本轮 reactions 范围内。
     async refreshReactions() {
         const opts = new SyncMessageOptions()
         opts.limit = WKApp.config.pageSizeOfMessage
