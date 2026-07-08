@@ -75,3 +75,6 @@ docs/superpowers/plans/
 grp_out.txt
 .cctmp/
 .codegraph/
+
+# Loop V1 内部设计文档仅保留在本地 workspace，不纳入版本库
+docs/loop-v1/
