@@ -1,0 +1,134 @@
+using System.Net.WebSockets;
+using System.Text;
+using System.Text.Json;
+using OctoMaui.Models;
+
+namespace OctoMaui.Services;
+
+/// <summary>
+/// Real-time client over octo-server WebSocket. Receives pushed messages,
+/// presence, and channel updates; sends outgoing chat text.
+/// </summary>
+public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
+{
+    private readonly ApiOptions _options;
+    private ClientWebSocket? _socket;
+    private CancellationTokenSource? _cts;
+    private Task? _receiveLoop;
+
+    public WebSocketService(ApiOptions options) => _options = options;
+
+    public bool IsConnected => _socket?.State == WebSocketState.Open;
+
+    public event Action<Message>? MessageReceived;
+    public event Action? ChannelUpdated;
+    public event Action<Exception>? ConnectionClosed;
+
+    public async Task ConnectAsync(string token, CancellationToken ct = default)
+    {
+        if (IsConnected) return;
+
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _socket = new ClientWebSocket();
+        _socket.Options.SetRequestHeader("Authorization", $"Bearer {token}");
+
+        var wsUrl = _options.WebSocketUrl + $"?token={Uri.EscapeDataString(token)}";
+        await _socket.ConnectAsync(new Uri(wsUrl), _cts.Token);
+
+        _receiveLoop = Task.Run(ReceiveLoopAsync, _cts.Token);
+    }
+
+    public async Task DisconnectAsync()
+    {
+        if (_socket is null) return;
+        _cts?.Cancel();
+        try
+        {
+            if (_socket.State == WebSocketState.Open)
+                await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "client closing", CancellationToken.None);
+        }
+        catch { /* ignore close errors */ }
+        _socket.Dispose();
+        _socket = null;
+    }
+
+    public async Task SendAsync(string channelId, string content, CancellationToken ct = default)
+    {
+        if (_socket is null || !IsConnected)
+            throw new InvalidOperationException("WebSocket not connected.");
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            type = "message",
+            channel_id = channelId,
+            content,
+            message_type = 1,
+        });
+        var bytes = Encoding.UTF8.GetBytes(payload);
+        await _socket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, ct);
+    }
+
+    private async Task ReceiveLoopAsync()
+    {
+        var buffer = new byte[8192];
+        var sb = new StringBuilder();
+        try
+        {
+            while (!_cts!.IsCancellationRequested && _socket!.State == WebSocketState.Open)
+            {
+                sb.Clear();
+                WebSocketReceiveResult result;
+                do
+                {
+                    result = await _socket.ReceiveAsync(buffer, _cts.Token);
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        ConnectionClosed?.Invoke(new InvalidOperationException("Server closed the connection."));
+                        return;
+                    }
+                    sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                } while (!result.EndOfMessage);
+
+                HandleIncoming(sb.ToString());
+            }
+        }
+        catch (OperationCanceledException) { /* normal shutdown */ }
+        catch (Exception ex)
+        {
+            ConnectionClosed?.Invoke(ex);
+        }
+    }
+
+    private void HandleIncoming(string raw)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            var type = doc.RootElement.GetProperty("type").GetString();
+            switch (type)
+            {
+                case "message":
+                    var msg = JsonSerializer.Deserialize<Message>(raw, JsonCaseInsensitive);
+                    if (msg is not null)
+                        MainThread.BeginInvokeOnMainThread(() => MessageReceived?.Invoke(msg));
+                    break;
+
+                case "channel_update":
+                    MainThread.BeginInvokeOnMainThread(() => ChannelUpdated?.Invoke());
+                    break;
+            }
+        }
+        catch
+        {
+            // Malformed payload — ignore rather than crash the receive loop.
+        }
+    }
+
+    private static readonly JsonSerializerOptions JsonCaseInsensitive = new() { PropertyNameCaseInsensitive = true };
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisconnectAsync();
+        _cts?.Dispose();
+    }
+}

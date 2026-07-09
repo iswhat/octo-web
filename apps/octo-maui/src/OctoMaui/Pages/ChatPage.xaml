@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:OctoMaui.Models"
+             x:Class="OctoMaui.Pages.ChatPage"
+             Title="OCTO"
+             BackgroundColor="{DynamicResource PageBackground}">
+
+    <Grid ColumnDefinitions="280,*">
+        <!-- ===== Channel sidebar ===== -->
+        <Border Grid.Column="0"
+                BackgroundColor="{DynamicResource SidebarBackground}"
+                StrokeThickness="0">
+            <Grid RowDefinitions="Auto,*">
+                <!-- Header -->
+                <HorizontalStackLayout Grid.Row="0"
+                                       Padding="16,16,16,8"
+                                       Spacing="8">
+                    <Label Text="🐙" FontSize="20" VerticalOptions="Center" />
+                    <Label Text="OCTO"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="White"
+                           VerticalOptions="Center" />
+                    <Button Text="退出"
+                            Command="{Binding LogoutCommand}"
+                            BackgroundColor="Transparent"
+                            TextColor="{DynamicResource SecondaryText}"
+                            FontSize="12"
+                            Margin="80,0,0,0"
+                            HorizontalOptions="End" />
+                </HorizontalStackLayout>
+
+                <!-- Channel list -->
+                <CollectionView Grid.Row="1"
+                                ItemsSource="{Binding Channels}"
+                                SelectionMode="Single"
+                                SelectedItem="{Binding SelectedChannel}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Channel">
+                            <Grid Padding="16,12" ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                    <Label Text="{Binding Name}"
+                                           TextColor="White"
+                                           FontSize="14" />
+                                    <Label Text="{Binding LastMessagePreview}"
+                                           TextColor="{DynamicResource SecondaryText}"
+                                           FontSize="11"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="1" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1"
+                                       Text="{Binding UnreadCount}"
+                                       TextColor="White"
+                                       FontSize="11"
+                                       IsVisible="{Binding UnreadCount, Converter={StaticResource GreaterThanZeroConverter}}"
+                                       BackgroundColor="{DynamicResource Danger}"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"
+                                       WidthRequest="20"
+                                       HeightRequest="20"
+                                       CornerRadius="10" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Border>
+
+        <!-- ===== Chat area ===== -->
+        <Grid Grid.Column="1"
+              RowDefinitions="Auto,*,Auto"
+              BackgroundColor="{DynamicResource PageBackground}">
+
+            <!-- Chat header -->
+            <Border Grid.Row="0"
+                    BackgroundColor="{DynamicResource HeaderBackground}"
+                    StrokeThickness="0"
+                    Padding="16,12">
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="{Binding SelectedChannel.Name}"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{DynamicResource PrimaryText}" />
+                    <Label Text="{Binding StatusText}"
+                           FontSize="11"
+                           TextColor="{DynamicResource SecondaryText}"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Border>
+
+            <!-- Message list -->
+            <CollectionView Grid.Row="1"
+                            ItemsSource="{Binding Messages}"
+                            Margin="0">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:Message">
+                        <Grid Padding="16,6" ColumnDefinitions="Auto,*">
+                            <Label Grid.Column="0"
+                                   Text="{Binding SenderName}"
+                                   FontAttributes="Bold"
+                                   FontSize="13"
+                                   TextColor="{DynamicResource Primary}"
+                                   WidthRequest="100"
+                                   LineBreakMode="TailTruncation"
+                                   VerticalOptions="Start" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                <Label Text="{Binding Content}"
+                                       FontSize="14"
+                                       TextColor="{DynamicResource PrimaryText}" />
+                                <Label Text="{Binding CreatedAt, StringFormat='{0:HH:mm}'}"
+                                       FontSize="10"
+                                       TextColor="{DynamicResource SecondaryText}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- Composer -->
+            <Border Grid.Row="2"
+                    BackgroundColor="{DynamicResource HeaderBackground}"
+                    StrokeThickness="0"
+                    Padding="12,8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Entry Grid.Column="0"
+                           Text="{Binding Draft}"
+                           Placeholder="输入消息…"
+                           ReturnType="Send"
+                           ReturnCommand="{Binding SendCommand}"
+                           FontSize="14" />
+                    <Button Grid.Column="1"
+                            Text="发送"
+                            Command="{Binding SendCommand}"
+                            BackgroundColor="{DynamicResource Primary}"
+                            TextColor="White"
+                            CornerRadius="6" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+
+</ContentPage>

@@ -1,0 +1,41 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
+
+namespace OctoMaui.ViewModels;
+
+/// <summary>
+/// Base class implementing <see cref="INotifyPropertyChanged"/> and a
+/// lightweight <see cref="Command"/> helper. Avoids external MVVM toolkit
+/// dependencies for transparency.
+/// </summary>
+public abstract class ViewModelBase : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private readonly Dictionary<string, object?> _values = new();
+
+    /// <summary>Strongly-typed property storage with change notification.</summary>
+    protected T Get<T>([CallerMemberName] string? name = null)
+        => _values.TryGetValue(name!, out var v) ? (T)v! : default!;
+
+    protected bool Set<T>(T value, [CallerMemberName] string? name = null)
+    {
+        if (_values.TryGetValue(name!, out var current) && Equals(current, value))
+            return false;
+        _values[name!] = value;
+        OnPropertyChanged(name);
+        return true;
+    }
+
+    protected void OnPropertyChanged([CallerMemberName] string? name = null)
+        => MainThread.BeginInvokeOnMainThread(
+            () => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name)));
+
+    /// <summary>Create a command that auto-handles notify-can-execute changes.</summary>
+    protected Command CreateCommand(Action execute, Func<bool>? canExecute = null)
+        => new(execute, canExecute);
+
+    protected Command<T> CreateCommand<T>(Action<T> execute, Func<T, bool>? canExecute = null)
+        => new(execute, canExecute);
+}

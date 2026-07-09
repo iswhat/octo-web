@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="OctoMaui.Pages.LoginPage"
+             Title="登录 OCTO"
+             BackgroundColor="{DynamicResource PageBackground}">
+
+    <Grid RowDefinitions="*,Auto,*,*"
+          Padding="32">
+
+        <!-- Spacer -->
+        <BoxView Grid.Row="0" />
+
+        <!-- Logo / Title -->
+        <VerticalStackLayout Grid.Row="1"
+                             HorizontalOptions="Center"
+                             Spacing="8">
+            <Label Text="🐙"
+                   FontSize="56"
+                   HorizontalOptions="Center" />
+            <Label Text="OCTO"
+                   FontSize="28"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"
+                   TextColor="{DynamicResource Primary}" />
+            <Label Text="the open workplace built for humans × AI agents"
+                   FontSize="12"
+                   TextColor="{DynamicResource SecondaryText}"
+                   HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <!-- Login form -->
+        <VerticalStackLayout Grid.Row="2"
+                             Spacing="12"
+                             MaximumWidthRequest="360"
+                             HorizontalOptions="Center"
+                             VerticalOptions="Center">
+
+            <Entry Placeholder="用户名"
+                   Text="{Binding Username}"
+                   ReturnType="Next"
+                   FontSize="16" />
+
+            <Entry Placeholder="密码"
+                   Text="{Binding Password}"
+                   IsPassword="True"
+                   ReturnType="Done"
+                   ReturnCommand="{Binding LoginCommand}"
+                   FontSize="16" />
+
+            <Label Text="{Binding ErrorMessage}"
+                   TextColor="{DynamicResource Danger}"
+                   FontSize="13"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource NotNullConverter}}" />
+
+            <Button Text="登录"
+                    Command="{Binding LoginCommand}"
+                    BackgroundColor="{DynamicResource Primary}"
+                    TextColor="White"
+                    CornerRadius="8"
+                    HeightRequest="44"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               Color="{DynamicResource Primary}" />
+        </VerticalStackLayout>
+
+        <!-- Footer -->
+        <Label Grid.Row="3"
+               Text=".NET MAUI client"
+               FontSize="11"
+               TextColor="{DynamicResource SecondaryText}"
+               HorizontalOptions="Center"
+               VerticalOptions="End" />
+    </Grid>
+
+</ContentPage>
