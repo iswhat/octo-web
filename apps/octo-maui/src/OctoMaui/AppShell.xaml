@@ -7,6 +7,11 @@
        Shell.FlyoutItemIsVisible="False">
 
     <ShellContent
+        Title="服务端设置"
+        ContentTemplate="{DataTemplate pages:ServerConfigPage}"
+        Route="server-config" />
+
+    <ShellContent
         Title="Login"
         ContentTemplate="{DataTemplate pages:LoginPage}"
         Route="login" />

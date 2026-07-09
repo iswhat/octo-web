@@ -75,6 +75,14 @@
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                                IsVisible="{Binding IsBusy}"
                                Color="{DynamicResource Primary}" />
+
+            <Button Text="切换服务端"
+                    Command="{Binding SwitchServerCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{DynamicResource SecondaryText}"
+                    FontSize="12"
+                    Padding="10,4"
+                    HorizontalOptions="Center" />
         </VerticalStackLayout>
 
     </Grid>

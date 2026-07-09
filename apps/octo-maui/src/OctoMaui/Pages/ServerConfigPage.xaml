@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="OctoMaui.Pages.ServerConfigPage"
+             Title="服务端设置"
+             BackgroundColor="{DynamicResource PageBackground}">
+
+    <Grid RowDefinitions="Auto,*,*,*"
+          Padding="32">
+
+        <!-- Top bar with theme toggle -->
+        <HorizontalStackLayout Grid.Row="0"
+                               HorizontalOptions="End">
+            <Button Text="{Binding ThemeLabel}"
+                    Command="{Binding ToggleThemeCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{DynamicResource SecondaryText}"
+                    FontSize="12"
+                    Padding="10,4" />
+        </HorizontalStackLayout>
+
+        <!-- Spacer -->
+        <BoxView Grid.Row="1" />
+
+        <!-- Logo / Title -->
+        <VerticalStackLayout Grid.Row="2"
+                             HorizontalOptions="Center"
+                             Spacing="8">
+            <Label Text="🐙"
+                   FontSize="56"
+                   HorizontalOptions="Center" />
+            <Label Text="连接到服务端"
+                   FontSize="24"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"
+                   TextColor="{DynamicResource PrimaryText}" />
+            <Label Text="OCTO 是开源项目，请输入你要连接的服务端地址"
+                   FontSize="12"
+                   TextColor="{DynamicResource SecondaryText}"
+                   HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <!-- Config form -->
+        <VerticalStackLayout Grid.Row="3"
+                             Spacing="12"
+                             MaximumWidthRequest="420"
+                             HorizontalOptions="Center"
+                             VerticalOptions="Center">
+
+            <Entry Placeholder="例如 octo.example.com 或 https://192.168.1.100:8080"
+                   Text="{Binding ServerUrl}"
+                   ReturnType="Done"
+                   FontSize="16"
+                   Keyboard="Url" />
+
+            <Label Text="{Binding StatusMessage}"
+                   FontSize="13"
+                   IsVisible="{Binding HasStatus}">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label"
+                                 Binding="{Binding IsSuccess}"
+                                 Value="True">
+                        <Setter Property="TextColor" Value="{DynamicResource Success}" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Label"
+                                 Binding="{Binding IsSuccess}"
+                                 Value="False">
+                        <Setter Property="TextColor" Value="{DynamicResource Danger}" />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
+
+            <Grid ColumnDefinitions="*,*" Spacing="8">
+                <Button Grid.Column="0"
+                        Text="测试连接"
+                        Command="{Binding TestCommand}"
+                        BackgroundColor="Transparent"
+                        TextColor="{DynamicResource Primary}"
+                        CornerRadius="8"
+                        HeightRequest="44"
+                        BorderWidth="1"
+                        BorderColor="{DynamicResource Border}" />
+                <Button Grid.Column="1"
+                        Text="保存并继续"
+                        Command="{Binding SaveCommand}"
+                        BackgroundColor="{DynamicResource Primary}"
+                        TextColor="White"
+                        CornerRadius="8"
+                        HeightRequest="44" />
+            </Grid>
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               Color="{DynamicResource Primary}" />
+        </VerticalStackLayout>
+
+    </Grid>
+
+</ContentPage>

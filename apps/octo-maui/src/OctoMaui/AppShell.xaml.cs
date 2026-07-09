@@ -6,31 +6,72 @@ public partial class AppShell : Shell
 {
     private readonly IAuthService _auth;
     private readonly IThemeService _theme;
+    private readonly IServerConfigService _server;
 
-    public AppShell(IAuthService auth, IThemeService theme)
+    /// <summary>
+    /// Set by <see cref="SuppressAutoNavigate"/> when the user explicitly
+    /// switches server. While true, <see cref="Navigate"/> is a no-op so that
+    /// the AuthStateChanged event raised by logout doesn't pull the user back
+    /// to the login page. Cleared when a new server is saved.
+    /// </summary>
+    private bool _suppressAutoNavigate;
+
+    public AppShell(IAuthService auth, IThemeService theme, IServerConfigService server)
     {
         _auth = auth;
         _theme = theme;
+        _server = server;
+
         InitializeComponent();
 
+        Routing.RegisterRoute("server-config", typeof(Pages.ServerConfigPage));
         Routing.RegisterRoute("login", typeof(Pages.LoginPage));
         Routing.RegisterRoute("chat", typeof(Pages.ChatPage));
 
-        // Route to the right page based on auth state.
-        _auth.AuthStateChanged += OnAuthStateChanged;
-        NavigateByAuthState();
+        // React to all three state changes that affect routing.
+        _auth.AuthStateChanged += (_, _) => MainThread.BeginInvokeOnMainThread(Navigate);
+        _server.ServerChanged += OnServerChanged;
 
-        // Apply the saved theme as early as possible to avoid a flash of the
-        // default light palette on dark-mode users.
+        // Apply the saved theme early to avoid a flash of the default palette.
         _ = _theme.InitializeAsync();
+
+        // Load any saved server URL, then navigate to the right page.
+        _ = InitializeAndNavigateAsync();
     }
 
-    private void OnAuthStateChanged(object? sender, EventArgs _)
-        => MainThread.BeginInvokeOnMainThread(NavigateByAuthState);
+    /// <summary>
+    /// Called by ChatViewModel when the user wants to switch server. Suppresses
+    /// auto-navigation until a new server is saved, so the logout event doesn't
+    /// reroute to the login page.
+    /// </summary>
+    public void SuppressAutoNavigate() => _suppressAutoNavigate = true;
 
-    private void NavigateByAuthState()
+    private void OnServerChanged(object? sender, EventArgs e)
     {
-        var route = _auth.IsAuthenticated ? "chat" : "login";
+        // A new server was saved — resume normal routing.
+        _suppressAutoNavigate = false;
+        MainThread.BeginInvokeOnMainThread(Navigate);
+    }
+
+    private async Task InitializeAndNavigateAsync()
+    {
+        await _server.InitializeAsync();
+        Navigate();
+    }
+
+    /// <summary>
+    /// Three-tier routing:
+    ///   1. No server configured → server-config
+    ///   2. Server configured but not logged in → login
+    ///   3. Logged in → chat
+    /// </summary>
+    private void Navigate()
+    {
+        if (_suppressAutoNavigate) return;
+
+        var route = !_server.IsConfigured ? "server-config"
+            : !_auth.IsAuthenticated ? "login"
+            : "chat";
         Current.GoToAsync($"//{route}");
     }
 }

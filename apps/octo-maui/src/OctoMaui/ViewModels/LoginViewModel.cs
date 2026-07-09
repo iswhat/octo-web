@@ -26,6 +26,7 @@ public sealed class LoginViewModel : ViewModelBase
 
     public ICommand LoginCommand => CreateCommand(async () => await LoginAsync(), () => !IsBusy);
     public ICommand ToggleThemeCommand => CreateCommand(async () => await ToggleThemeAsync());
+    public ICommand SwitchServerCommand => CreateCommand(() => SwitchServer());
 
     private async Task LoginAsync()
     {
@@ -73,5 +74,12 @@ public sealed class LoginViewModel : ViewModelBase
             AppTheme.Dark => "深色",
             _ => "跟随系统",
         };
+    }
+
+    private static void SwitchServer()
+    {
+        // Return to the server configuration page. The AppShell routing will
+        // keep the user there until a new server is validated and saved.
+        Shell.Current.GoToAsync("//server-config");
     }
 }

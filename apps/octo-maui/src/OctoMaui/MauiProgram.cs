@@ -16,7 +16,10 @@ public static class MauiProgram
 #endif
 
         // --- Dependency injection: services ---
-        // API base URL — override via OCTO_API_BASE env var.
+        // The initial BaseUrl is only a placeholder — the real URL is set by
+        // the user via the server configuration page and loaded by
+        // ServerConfigService.InitializeAsync on startup. The env var is kept
+        // as a fallback for headless / CI scenarios.
         var apiBase = Environment.GetEnvironmentVariable("OCTO_API_BASE")
                       ?? "http://localhost:8080";
 
@@ -25,14 +28,17 @@ public static class MauiProgram
         builder.Services.AddSingleton<IAuthService, AuthService>();
         builder.Services.AddSingleton<IWebSocketService, WebSocketService>();
         builder.Services.AddSingleton<IThemeService, ThemeService>();
+        builder.Services.AddSingleton<IServerConfigService, ServerConfigService>();
 
         // --- ViewModels ---
         builder.Services.AddTransient<ViewModels.LoginViewModel>();
         builder.Services.AddTransient<ViewModels.ChatViewModel>();
+        builder.Services.AddTransient<ViewModels.ServerConfigViewModel>();
 
         // --- Pages ---
         builder.Services.AddTransient<Pages.LoginPage>();
         builder.Services.AddTransient<Pages.ChatPage>();
+        builder.Services.AddTransient<Pages.ServerConfigPage>();
 
         return builder.Build();
     }

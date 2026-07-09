@@ -26,6 +26,7 @@ public sealed class ChatViewModel : ViewModelBase
         SendCommand = CreateCommand(async () => await SendAsync(), () => !string.IsNullOrWhiteSpace(Draft) && SelectedChannel is not null);
         LogoutCommand = CreateCommand(async () => await LogoutAsync());
         ToggleThemeCommand = CreateCommand(async () => await ToggleThemeAsync());
+        SwitchServerCommand = CreateCommand(async () => await SwitchServerAsync());
 
         _ws.MessageReceived += OnMessageReceived;
         _ws.ConnectionClosed += OnConnectionClosed;
@@ -64,6 +65,7 @@ public sealed class ChatViewModel : ViewModelBase
     public ICommand SendCommand { get; }
     public ICommand LogoutCommand { get; }
     public ICommand ToggleThemeCommand { get; }
+    public ICommand SwitchServerCommand { get; }
 
     // --- lifecycle ---
 
@@ -156,6 +158,23 @@ public sealed class ChatViewModel : ViewModelBase
     {
         await _ws.DisconnectAsync();
         await _auth.LogoutAsync();
+    }
+
+    /// <summary>
+    /// Disconnect from the current server and return to the server
+    /// configuration page. The session token is server-specific so we log out
+    /// first — the user will re-authenticate against the new server.
+    /// </summary>
+    private async Task SwitchServerAsync()
+    {
+        // Suppress auto-navigation so the logout event doesn't reroute to
+        // login before we reach the server-config page.
+        if (Shell.Current is AppShell shell)
+            shell.SuppressAutoNavigate();
+
+        await _ws.DisconnectAsync();
+        await _auth.LogoutAsync();
+        Shell.Current.GoToAsync("//server-config");
     }
 
     // --- theme ---
