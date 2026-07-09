@@ -20,6 +20,9 @@ public sealed class ChatViewModel : ViewModelBase
     /// <summary>Tracks the streaming message being built (messageId -> Message).</summary>
     private readonly Dictionary<string, Message> _streamingMessages = new();
 
+    /// <summary>Cancels the previous LoadMessagesAsync when switching channels.</summary>
+    private CancellationTokenSource? _loadMessagesCts;
+
     public ChatViewModel(IAuthService auth, IApiService api, IWebSocketService ws, IThemeService theme)
     {
         _auth = auth;
@@ -31,8 +34,8 @@ public sealed class ChatViewModel : ViewModelBase
         LogoutCommand = CreateCommand(async () => await LogoutAsync());
         ToggleThemeCommand = CreateCommand(async () => await ToggleThemeAsync());
         SwitchServerCommand = CreateCommand(async () => await SwitchServerAsync());
-        AttachFileCommand = CreateCommand(async () => await AttachFileAsync(), () => SelectedChannel is not null);
-        AttachImageCommand = CreateCommand(async () => await AttachImageAsync(), () => SelectedChannel is not null);
+        AttachFileCommand = CreateCommand(async () => await AttachFileAsync(), () => !IsBusy && SelectedChannel is not null);
+        AttachImageCommand = CreateCommand(async () => await AttachImageAsync(), () => !IsBusy && SelectedChannel is not null);
 
         _ws.MessageReceived += OnMessageReceived;
         _ws.StreamStarted += OnStreamStarted;
@@ -59,7 +62,10 @@ public sealed class ChatViewModel : ViewModelBase
         {
             if (Set(value))
             {
-                _ = LoadMessagesAsync();
+                // Cancel any in-flight message load before starting a new one.
+                _loadMessagesCts?.Cancel();
+                _loadMessagesCts = new CancellationTokenSource();
+                _ = LoadMessagesAsync(_loadMessagesCts.Token);
             }
         }
     }
@@ -70,6 +76,25 @@ public sealed class ChatViewModel : ViewModelBase
 
     /// <summary>True when an AI agent is actively streaming a reply (typing indicator).</summary>
     public bool IsAgentTyping
+    {
+        get => Get<bool>();
+        set => Set(value);
+    }
+
+    /// <summary>True while a file/image upload is in progress (disables attachment buttons).</summary>
+    public bool IsUploading
+    {
+        get => Get<bool>();
+        set
+        {
+            Set(value);
+            ((Command)AttachFileCommand).ChangeCanExecute();
+            ((Command)AttachImageCommand).ChangeCanExecute();
+        }
+    }
+
+    /// <summary>True when files are being dragged over the drop area.</summary>
+    public bool IsDragOver
     {
         get => Get<bool>();
         set => Set(value);
@@ -89,10 +114,17 @@ public sealed class ChatViewModel : ViewModelBase
 
     public async Task InitializeAsync()
     {
-        await _auth.HydrateCurrentUserAsync();
-        await LoadChannelsAsync();
-        await _ws.ConnectAsync(_auth.Token!);
-        StatusText = "已连接";
+        try
+        {
+            await _auth.HydrateCurrentUserAsync();
+            await LoadChannelsAsync();
+            await _ws.ConnectAsync(_auth.Token!);
+            StatusText = "已连接";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"初始化失败: {ex.Message}";
+        }
     }
 
     // --- data loading ---
@@ -117,23 +149,30 @@ public sealed class ChatViewModel : ViewModelBase
         }
     }
 
-    private async Task LoadMessagesAsync()
+    private async Task LoadMessagesAsync(CancellationToken ct)
     {
         if (SelectedChannel is null) return;
         IsLoading = true;
         try
         {
-            var msgs = await _api.GetMessagesAsync(_auth.Token!, SelectedChannel.Id, limit: 50);
+            var msgs = await _api.GetMessagesAsync(_auth.Token!, SelectedChannel.Id, limit: 50, ct: ct);
+            if (ct.IsCancellationRequested) return;
             Messages.Clear();
             foreach (var m in msgs) Messages.Add(m);
         }
+        catch (OperationCanceledException)
+        {
+            // Channel switched — ignore the stale result.
+        }
         catch (Exception ex)
         {
-            StatusText = $"加载消息失败: {ex.Message}";
+            if (!ct.IsCancellationRequested)
+                StatusText = $"加载消息失败: {ex.Message}";
         }
         finally
         {
-            IsLoading = false;
+            if (!ct.IsCancellationRequested)
+                IsLoading = false;
         }
     }
 
@@ -168,7 +207,7 @@ public sealed class ChatViewModel : ViewModelBase
         if (msg.ChannelId != SelectedChannel?.Id) return;
         // If this is the final version of a streamed message, remove the
         // streaming placeholder before adding the complete one.
-        if (_streamingMessages.TryGetValue(msg.Id, out var placeholder))
+        if (!string.IsNullOrEmpty(msg.Id) && _streamingMessages.TryGetValue(msg.Id, out var placeholder))
         {
             Messages.Remove(placeholder);
             _streamingMessages.Remove(msg.Id);
@@ -180,6 +219,7 @@ public sealed class ChatViewModel : ViewModelBase
 
     private void OnStreamStarted(string messageId)
     {
+        if (string.IsNullOrEmpty(messageId)) return;
         IsAgentTyping = true;
         // Create a placeholder streaming message.
         var msg = new Message
@@ -198,32 +238,22 @@ public sealed class ChatViewModel : ViewModelBase
 
     private void OnStreamChunkReceived(string messageId, string chunk)
     {
+        if (string.IsNullOrEmpty(messageId)) return;
+        // Message now implements INotifyPropertyChanged, so setting Content
+        // directly triggers the UI update without replacing the item.
         if (_streamingMessages.TryGetValue(messageId, out var msg))
         {
-            // Append chunk to the message content.
             msg.Content += chunk;
-            // Force the CollectionView to refresh this item by replacing it.
-            var idx = Messages.IndexOf(msg);
-            if (idx >= 0)
-            {
-                Messages[idx] = msg;
-            }
         }
     }
 
     private void OnStreamEnded(string messageId)
     {
         IsAgentTyping = false;
-        if (_streamingMessages.TryGetValue(messageId, out var msg))
+        if (!string.IsNullOrEmpty(messageId) && _streamingMessages.TryGetValue(messageId, out var msg))
         {
             msg.IsStreaming = false;
             _streamingMessages.Remove(messageId);
-            // Final refresh.
-            var idx = Messages.IndexOf(msg);
-            if (idx >= 0)
-            {
-                Messages[idx] = msg;
-            }
         }
     }
 
@@ -231,7 +261,7 @@ public sealed class ChatViewModel : ViewModelBase
 
     private async Task AttachFileAsync()
     {
-        if (SelectedChannel is null) return;
+        if (SelectedChannel is null || IsUploading) return;
         try
         {
             var result = await FilePicker.PickAsync(new PickOptions
@@ -249,6 +279,7 @@ public sealed class ChatViewModel : ViewModelBase
 
             using var stream = await result.OpenReadAsync();
             var contentType = result.ContentType ?? "application/octet-stream";
+            IsUploading = true;
             StatusText = "正在上传文件…";
             await _api.UploadFileAsync(_auth.Token!, SelectedChannel.Id, stream, result.FileName, contentType);
             StatusText = "已上传";
@@ -257,11 +288,15 @@ public sealed class ChatViewModel : ViewModelBase
         {
             StatusText = $"上传失败: {ex.Message}";
         }
+        finally
+        {
+            IsUploading = false;
+        }
     }
 
     private async Task AttachImageAsync()
     {
-        if (SelectedChannel is null) return;
+        if (SelectedChannel is null || IsUploading) return;
         try
         {
             var result = await FilePicker.PickAsync(new PickOptions
@@ -273,6 +308,7 @@ public sealed class ChatViewModel : ViewModelBase
 
             using var stream = await result.OpenReadAsync();
             var contentType = result.ContentType ?? "image/png";
+            IsUploading = true;
             StatusText = "正在上传图片…";
             await _api.UploadFileAsync(_auth.Token!, SelectedChannel.Id, stream, result.FileName, contentType);
             StatusText = "已上传";
@@ -281,6 +317,59 @@ public sealed class ChatViewModel : ViewModelBase
         {
             StatusText = $"上传失败: {ex.Message}";
         }
+        finally
+        {
+            IsUploading = false;
+        }
+    }
+
+    /// <summary>
+    /// Handle files dropped onto the chat area. Called from the
+    /// DropGestureRecognizer in ChatPage.xaml.
+    /// </summary>
+    public async Task HandleDropAsync(IEnumerable<string> filePaths)
+    {
+        if (SelectedChannel is null || IsUploading) return;
+        foreach (var path in filePaths)
+        {
+            try
+            {
+                using var stream = File.OpenRead(path);
+                var fileName = Path.GetFileName(path);
+                var contentType = GuessContentType(fileName);
+                IsUploading = true;
+                StatusText = $"正在上传 {fileName}…";
+                await _api.UploadFileAsync(_auth.Token!, SelectedChannel.Id, stream, fileName, contentType);
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"上传失败: {ex.Message}";
+                return;
+            }
+            finally
+            {
+                IsUploading = false;
+            }
+        }
+        StatusText = "上传完成";
+    }
+
+    private static string GuessContentType(string fileName)
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".svg" => "image/svg+xml",
+            ".pdf" => "application/pdf",
+            ".zip" => "application/zip",
+            ".json" => "application/json",
+            ".xml" => "application/xml",
+            ".txt" or ".md" => "text/plain",
+            _ => "application/octet-stream",
+        };
     }
 
     private void OnConnectionClosed(Exception ex)

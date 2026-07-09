@@ -35,6 +35,45 @@ public partial class ChatPage : ContentPage
         });
     }
 
+    // --- drag & drop file upload ---
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        _vm.IsDragOver = true;
+    }
+
+    private void OnDragLeave(object? sender, DragEventArgs e)
+    {
+        _vm.IsDragOver = false;
+    }
+
+    private async void OnDrop(object? sender, DropEventArgs e)
+    {
+        _vm.IsDragOver = false;
+        if (_vm.SelectedChannel is null) return;
+
+        try
+        {
+            var view = e.DataPackage.View;
+            // File drops on Windows provide paths as text; on other platforms
+            // the text may contain a file URI. Parse defensively.
+            if (view.Contains(StandardDataFormats.Text))
+            {
+                var text = await view.GetTextAsync();
+                var files = text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => s.Trim().TrimStart('"').TrimEnd('"'))
+                    .Where(s => !string.IsNullOrEmpty(s) && File.Exists(s))
+                    .ToList();
+                if (files.Count > 0)
+                    await _vm.HandleDropAsync(files);
+            }
+        }
+        catch
+        {
+            // Drag-drop is best-effort; never crash on malformed payloads.
+        }
+    }
+
     protected override async void OnNavigatedTo(NavigatedToEventArgs args)
     {
         base.OnNavigatedTo(args);

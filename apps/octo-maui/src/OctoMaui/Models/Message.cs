@@ -1,11 +1,19 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
 namespace OctoMaui.Models;
 
 /// <summary>A single chat message in a channel.</summary>
-public sealed class Message
+public sealed class Message : INotifyPropertyChanged
 {
-    public string Id { get; set; } = string.Empty;
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private string _id = string.Empty;
+    private string _content = string.Empty;
+    private bool _isStreaming;
+
+    public string Id { get => _id; set => SetField(ref _id, value); }
 
     /// <summary>Channel this message belongs to.</summary>
     [JsonPropertyName("channel_id")]
@@ -19,7 +27,11 @@ public sealed class Message
     public string SenderName { get; set; } = string.Empty;
 
     /// <summary>Plain-text or markdown body.</summary>
-    public string Content { get; set; } = string.Empty;
+    public string Content
+    {
+        get => _content;
+        set => SetField(ref _content, value);
+    }
 
     /// <summary>Message type: text / image / file / system / tool_call.</summary>
     [JsonPropertyName("message_type")]
@@ -89,7 +101,20 @@ public sealed class Message
 
     /// <summary>True if streamed from an AI agent (partial / typing).</summary>
     [JsonPropertyName("streaming")]
-    public bool IsStreaming { get; set; }
+    public bool IsStreaming
+    {
+        get => _isStreaming;
+        set => SetField(ref _isStreaming, value);
+    }
+
+    // --- INotifyPropertyChanged helpers ---
+
+    private void SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    {
+        if (Equals(field, value)) return;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
 }
 
 public enum MessageType

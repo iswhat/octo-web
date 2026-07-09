@@ -17,11 +17,6 @@ public partial class App : Application
     private const string PrefY = "win.y";
     private const string PrefW = "win.w";
     private const string PrefH = "win.h";
-    private const string PrefMinimizeToTray = "win.minimize_to_tray";
-
-    private readonly IAuthService? _auth;
-    private readonly ITrayService? _tray;
-    private readonly IUpdateService? _update;
 
     public App()
     {
@@ -35,10 +30,6 @@ public partial class App : Application
         try { return Handler?.MauiContext?.Services?.GetService<T>(); }
         catch { return null; }
     }
-
-    private IAuthService? ResolveAuth() => Resolve<IAuthService>();
-    private ITrayService? ResolveTray() => Resolve<ITrayService>();
-    private IUpdateService? ResolveUpdate() => Resolve<IUpdateService>();
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
@@ -81,10 +72,20 @@ public partial class App : Application
 
     private async Task InitializeTrayAndUpdatesAsync(Window window)
     {
-        await Task.Delay(500); // Let DI container finish building.
+        // Wait for the window's handler (and thus the DI container) to be
+        // ready instead of relying on a fixed delay. HandlerChanged fires
+        // once the native window is created and services are available.
+        if (window.Handler is null)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+            void OnHandlerChanged(object? s, EventArgs e) => tcs.TrySetResult(true);
+            window.HandlerChanged += OnHandlerChanged;
+            await tcs.Task;
+            window.HandlerChanged -= OnHandlerChanged;
+        }
 
         // --- System tray ---
-        var tray = _tray ?? ResolveTray();
+        var tray = Resolve<ITrayService>();
         if (tray is { IsSupported: true })
         {
             await tray.InitializeAsync();
@@ -93,7 +94,7 @@ public partial class App : Application
         }
 
         // --- Auto-update check (non-blocking) ---
-        var update = _update ?? ResolveUpdate();
+        var update = Resolve<IUpdateService>();
         if (update is not null)
         {
             update.UpdateFound += () =>
@@ -119,7 +120,7 @@ public partial class App : Application
         if (sender is not Window window) return;
 
         // Resolve auth once DI is ready and wire up dynamic title updates.
-        var auth = _auth ?? ResolveAuth();
+        var auth = Resolve<IAuthService>();
         if (auth is null) return;
 
         auth.AuthStateChanged += (_, _) =>
