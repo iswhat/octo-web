@@ -92,6 +92,73 @@ public sealed class ApiService : IApiService
         return await SendAsync<Message>(req, ct);
     }
 
+    // --- OIDC / enterprise passport (SSO) ---
+    // These endpoints use the /v1/* path prefix (matching the web client's
+    // oidc/http.ts) and do not require a token — they're pre-authentication.
+
+    public async Task<ServerInfo> GetServerInfoAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var resp = await _http.GetAsync("/v1/common/appconfig", ct);
+            if (!resp.IsSuccessStatusCode) return new ServerInfo();
+            using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), ct);
+            var info = new ServerInfo();
+            if (doc.RootElement.TryGetProperty("oidc_providers", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in arr.EnumerateArray())
+                {
+                    info.OidcProviders.Add(new OidcProvider
+                    {
+                        Id = item.TryGetProperty("id", out var id) ? id.GetString() ?? "" : "",
+                        Name = item.TryGetProperty("name", out var name) ? name.GetString() ?? "" : "",
+                        AuthorizePath = item.TryGetProperty("authorizePath", out var ap) ? ap.GetString() ?? "" : "",
+                        AccountUrl = item.TryGetProperty("accountUrl", out var au) && au.ValueKind == JsonValueKind.String ? au.GetString() : null,
+                        ResetPasswordUrl = item.TryGetProperty("resetPasswordUrl", out var rp) && rp.ValueKind == JsonValueKind.String ? rp.GetString() : null,
+                    });
+                }
+            }
+            return info;
+        }
+        catch
+        {
+            // Server doesn't expose appconfig (older / simplified deployment)
+            // — fall back to local-only login.
+            return new ServerInfo();
+        }
+    }
+
+    public async Task<string> GetAuthCodeAsync(CancellationToken ct = default)
+    {
+        using var resp = await _http.GetAsync("/v1/user/thirdlogin/authcode", ct);
+        resp.EnsureSuccessStatusCode();
+        using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), ct);
+        return doc.RootElement.TryGetProperty("authcode", out var ac) ? ac.GetString() ?? "" : "";
+    }
+
+    public async Task<OidcAuthStatus> PollAuthStatusAsync(string authCode, CancellationToken ct = default)
+    {
+        using var resp = await _http.GetAsync($"/v1/user/thirdlogin/authstatus?authcode={Uri.EscapeDataString(authCode)}", ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<OidcAuthStatus>(Json, ct)
+               ?? new OidcAuthStatus { Status = 2, Msg = "Empty response" };
+    }
+
+    /// <summary>
+    /// Build the full authorize URL for a given OIDC provider. If
+    /// <paramref name="provider.AuthorizePath"/> is already absolute, it's
+    /// used as-is; otherwise it's resolved against the current server origin.
+    /// </summary>
+    public string BuildAuthorizeUrl(OidcProvider provider, string authCode)
+    {
+        var path = provider.AuthorizePath;
+        var full = path.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            ? path
+            : new Uri(new Uri(_options.BaseUrl), path).ToString();
+        var sep = full.Contains('?') ? "&" : "?";
+        return $"{full}{sep}authcode={Uri.EscapeDataString(authCode)}&flag=1";
+    }
+
     // --- helpers ---
 
     private static HttpClient CreateClient(string baseUrl, TimeSpan timeout)

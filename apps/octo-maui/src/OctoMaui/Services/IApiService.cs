@@ -34,4 +34,36 @@ public interface IApiService
 
     /// <summary>Send a text message to a channel.</summary>
     Task<Message> SendMessageAsync(string token, string channelId, string content, CancellationToken ct = default);
+
+    // --- OIDC / enterprise passport (SSO) ---
+
+    /// <summary>
+    /// Fetch the server's capability/config endpoint
+    /// (<c>GET /v1/common/appconfig</c>) to discover OIDC providers and other
+    /// runtime settings. Returns an empty <see cref="ServerInfo"/> (no
+    /// providers) if the endpoint is unavailable — callers fall back to local
+    /// login.
+    /// </summary>
+    Task<ServerInfo> GetServerInfoAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Request a one-time authcode for third-party login
+    /// (<c>GET /v1/user/thirdlogin/authcode</c>). The code is embedded in the
+    /// authorize URL the user opens in a browser, and is later polled via
+    /// <see cref="PollAuthStatusAsync"/>.
+    /// </summary>
+    Task<string> GetAuthCodeAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Poll the login status for a previously issued authcode
+    /// (<c>GET /v1/user/thirdlogin/authstatus?authcode=...</c>).
+    /// </summary>
+    Task<OidcAuthStatus> PollAuthStatusAsync(string authCode, CancellationToken ct = default);
+
+    /// <summary>
+    /// Build the full authorize URL for a given OIDC provider, appending the
+    /// <c>authcode</c> and <c>flag=1</c> query parameters. Handles both
+    /// absolute and server-relative <see cref="OidcProvider.AuthorizePath"/>.
+    /// </summary>
+    string BuildAuthorizeUrl(OidcProvider provider, string authCode);
 }

@@ -1,4 +1,6 @@
+using System.Collections.ObjectModel;
 using System.Windows.Input;
+using OctoMaui.Models;
 using OctoMaui.Services;
 
 namespace OctoMaui.ViewModels;
@@ -7,26 +9,56 @@ public sealed class LoginViewModel : ViewModelBase
 {
     private readonly IAuthService _auth;
     private readonly IThemeService _theme;
+    private readonly IServerConfigService _server;
 
-    public LoginViewModel(IAuthService auth, IThemeService theme)
+    public LoginViewModel(IAuthService auth, IThemeService theme, IServerConfigService server)
     {
         _auth = auth;
         _theme = theme;
+        _server = server;
+
         _theme.ThemeChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshThemeLabel);
+        _server.ServerInfoChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshOidcProviders);
+
         RefreshThemeLabel();
+        RefreshOidcProviders();
     }
+
+    // --- local login ---
+
+    public string ThemeLabel { get => Get<string>(); set => Set(value); } = "主题";
 
     public string Username { get => Get<string>(); set => Set(value); }
     public string Password { get => Get<string>(); set => Set(value); }
     public string ErrorMessage { get => Get<string>(); set => Set(value); }
     public bool IsBusy { get => Get<bool>(); set => Set(value); }
 
-    /// <summary>Localized label for the theme toggle button.</summary>
-    public string ThemeLabel { get => Get<string>(); set => Set(value); } = "主题";
-
     public ICommand LoginCommand => CreateCommand(async () => await LoginAsync(), () => !IsBusy);
     public ICommand ToggleThemeCommand => CreateCommand(async () => await ToggleThemeAsync());
     public ICommand SwitchServerCommand => CreateCommand(() => SwitchServer());
+
+    // --- OIDC / enterprise passport ---
+
+    /// <summary>SSO providers advertised by the server's appconfig.</summary>
+    public ObservableCollection<OidcProvider> OidcProviders { get; } = new();
+
+    /// <summary>True when at least one OIDC provider is available.</summary>
+    public bool HasOidcProviders { get => Get<bool>(); set => Set(value); }
+
+    /// <summary>Status message during OIDC login (authcode / polling).</summary>
+    public string OidcStatus
+    {
+        get => Get<string>();
+        set
+        {
+            Set(value);
+            OnPropertyChanged(nameof(HasOidcStatus));
+        }
+    }
+    public bool HasOidcStatus => !string.IsNullOrWhiteSpace(OidcStatus);
+
+    /// <summary>Parameterized command: receives an <see cref="OidcProvider"/>.</summary>
+    public ICommand LoginWithOidcCommand => CreateCommand<OidcProvider>(async p => await LoginWithOidcAsync(p!), () => !IsBusy);
 
     private async Task LoginAsync()
     {
@@ -54,6 +86,40 @@ public sealed class LoginViewModel : ViewModelBase
         }
     }
 
+    private async Task LoginWithOidcAsync(OidcProvider provider)
+    {
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        OidcStatus = string.Empty;
+
+        var progress = new Progress<string>(msg => MainThread.BeginInvokeOnMainThread(() => OidcStatus = msg));
+        try
+        {
+            var ok = await _auth.LoginWithOidcAsync(provider, progress);
+            if (!ok && string.IsNullOrWhiteSpace(OidcStatus))
+                ErrorMessage = "企业登录失败，请重试";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"企业登录异常: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void RefreshOidcProviders()
+    {
+        OidcProviders.Clear();
+        if (_server.ServerInfo is { } info)
+        {
+            foreach (var p in info.OidcProviders)
+                OidcProviders.Add(p);
+        }
+        HasOidcProviders = OidcProviders.Count > 0;
+    }
+
     private async Task ToggleThemeAsync()
     {
         var next = _theme.Mode switch
@@ -78,8 +144,6 @@ public sealed class LoginViewModel : ViewModelBase
 
     private static void SwitchServer()
     {
-        // Return to the server configuration page. The AppShell routing will
-        // keep the user there until a new server is validated and saved.
         Shell.Current.GoToAsync("//server-config");
     }
 }

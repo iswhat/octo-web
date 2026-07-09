@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:OctoMaui.Models"
              x:Class="OctoMaui.Pages.LoginPage"
              Title="登录 OCTO"
              BackgroundColor="{DynamicResource PageBackground}">
@@ -47,6 +48,53 @@
                              HorizontalOptions="Center"
                              VerticalOptions="Center">
 
+            <!-- OIDC / Enterprise passport buttons -->
+            <VerticalStackLayout Spacing="8"
+                                 IsVisible="{Binding HasOidcProviders}">
+                <CollectionView ItemsSource="{Binding OidcProviders}"
+                                Margin="0">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:OidcProvider">
+                            <Button Text="{Binding Name}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.LoginWithOidcCommand}"
+                                    CommandParameter="{Binding .}"
+                                    BackgroundColor="{DynamicResource CardBackground}"
+                                    TextColor="{DynamicResource PrimaryText}"
+                                    CornerRadius="8"
+                                    HeightRequest="44"
+                                    Margin="0,0,0,4"
+                                    BorderWidth="1"
+                                    BorderColor="{DynamicResource Border}" />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <!-- OIDC polling status -->
+                <Label Text="{Binding OidcStatus}"
+                       FontSize="13"
+                       TextColor="{DynamicResource SecondaryText}"
+                       IsVisible="{Binding HasOidcStatus}"
+                       HorizontalOptions="Center" />
+
+                <!-- Separator -->
+                <HorizontalStackLayout HorizontalOptions="Center"
+                                       Margin="0,8">
+                    <BoxView Color="{DynamicResource Border}"
+                             HeightRequest="1"
+                             WidthRequest="120"
+                             VerticalOptions="Center" />
+                    <Label Text="或使用账号密码登录"
+                           FontSize="11"
+                           TextColor="{DynamicResource SecondaryText}"
+                           Margin="8,0" />
+                    <BoxView Color="{DynamicResource Border}"
+                             HeightRequest="1"
+                             WidthRequest="120"
+                             VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- Local login form -->
             <Entry Placeholder="用户名"
                    Text="{Binding Username}"
                    ReturnType="Next"

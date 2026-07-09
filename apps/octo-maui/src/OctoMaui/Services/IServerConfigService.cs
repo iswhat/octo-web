@@ -1,3 +1,5 @@
+using OctoMaui.Models;
+
 namespace OctoMaui.Services;
 
 /// <summary>
@@ -17,18 +19,31 @@ public interface IServerConfigService
     /// <summary>True when a server URL has been saved.</summary>
     bool IsConfigured { get; }
 
+    /// <summary>
+    /// Server capability info (OIDC providers etc.) fetched from
+    /// <c>/v1/common/appconfig</c>. Null until the server is probed.
+    /// </summary>
+    ServerInfo? ServerInfo { get; }
+
     /// <summary>Raised on the UI thread when the server URL changes.</summary>
     event EventHandler? ServerChanged;
 
     /// <summary>
+    /// Raised on the UI thread when <see cref="ServerInfo"/> is (re)loaded.
+    /// </summary>
+    event EventHandler? ServerInfoChanged;
+
+    /// <summary>
     /// Load the saved URL from preferences into <see cref="ApiOptions"/> /
-    /// <see cref="IApiService"/>. Call once at startup before any navigation.
+    /// <see cref="IApiService"/> and probe the server for capabilities. Call
+    /// once at startup before any navigation.
     /// </summary>
     Task InitializeAsync();
 
     /// <summary>
-    /// Validate, persist, and apply a new server URL. Returns false (with
-    /// <paramref name="errorMessage"/> set) if the server is unreachable.
+    /// Validate, persist, and apply a new server URL. Returns false if the
+    /// server is unreachable. On success, also probes <c>appconfig</c> and
+    /// populates <see cref="ServerInfo"/>.
     /// </summary>
     Task<bool> SetServerUrlAsync(string url, CancellationToken ct = default);
 

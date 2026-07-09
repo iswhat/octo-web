@@ -1,10 +1,12 @@
+using OctoMaui.Models;
+
 namespace OctoMaui.Services;
 
 /// <summary>
 /// Persists the user's chosen octo-server URL in <see cref="Preferences"/> and
-/// keeps <see cref="ApiOptions"/> / <see cref="IApiService"/> in sync. Because
-/// the project is open-source, the server domain is set by the user at runtime
-/// rather than compiled in.
+/// keeps <see cref="ApiOptions"/> / <see cref="IApiService"/> in sync. After
+/// connecting, also probes <c>/v1/common/appconfig</c> for OIDC/SSO provider
+/// configuration so the login page can show enterprise passport buttons.
 /// </summary>
 public sealed class ServerConfigService : IServerConfigService
 {
@@ -26,10 +28,16 @@ public sealed class ServerConfigService : IServerConfigService
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ServerUrl);
 
     /// <inheritdoc />
+    public ServerInfo? ServerInfo { get; private set; }
+
+    /// <inheritdoc />
     public event EventHandler? ServerChanged;
 
     /// <inheritdoc />
-    public Task InitializeAsync()
+    public event EventHandler? ServerInfoChanged;
+
+    /// <inheritdoc />
+    public async Task InitializeAsync()
     {
         var saved = Preferences.Default.Get(PrefKey, string.Empty);
         if (!string.IsNullOrWhiteSpace(saved))
@@ -45,9 +53,12 @@ public sealed class ServerConfigService : IServerConfigService
             {
                 // Corrupted preference — clear it so the user is prompted again.
                 Preferences.Default.Remove(PrefKey);
+                return;
             }
         }
-        return Task.CompletedTask;
+
+        // Probe capabilities (OIDC providers etc.) if a server is configured.
+        await ProbeServerInfoAsync();
     }
 
     /// <inheritdoc />
@@ -73,6 +84,10 @@ public sealed class ServerConfigService : IServerConfigService
         Preferences.Default.Set(PrefKey, normalized);
 
         RaiseChanged();
+
+        // Probe appconfig for OIDC providers (non-fatal if it fails).
+        await ProbeServerInfoAsync();
+
         return true;
     }
 
@@ -82,7 +97,27 @@ public sealed class ServerConfigService : IServerConfigService
         return _api.PingAsync(url, ct);
     }
 
+    // --- helpers ---
+
+    private async Task ProbeServerInfoAsync()
+    {
+        if (!IsConfigured) return;
+        try
+        {
+            ServerInfo = await _api.GetServerInfoAsync();
+        }
+        catch
+        {
+            ServerInfo = new ServerInfo();
+        }
+        RaiseInfoChanged();
+    }
+
     private void RaiseChanged()
         => MainThread.BeginInvokeOnMainThread(
             () => ServerChanged?.Invoke(this, EventArgs.Empty));
+
+    private void RaiseInfoChanged()
+        => MainThread.BeginInvokeOnMainThread(
+            () => ServerInfoChanged?.Invoke(this, EventArgs.Empty));
 }
