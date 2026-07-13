@@ -37,17 +37,26 @@ public partial class App : Application
         catch { return null; }
     }
 
+    private static T? Resolve<T>(IServiceProvider? services) where T : class
+    {
+        try { return services?.GetService<T>(); }
+        catch { return null; }
+    }
+
     protected override Window CreateWindow(IActivationState? activationState)
     {
         // Resolve AppShell from DI so its constructor-injected services
         // (auth, theme, server config, history) are populated.
-        var shell = Resolve<AppShell>();
+        // At CreateWindow time the Handler is not yet attached, so we resolve
+        // from the activation state's services instead of Handler.MauiContext.
+        var services = activationState?.Context?.Services;
+        var shell = Resolve<AppShell>(services);
         if (shell is null)
         {
-            var auth = Handler?.MauiContext?.Services?.GetService<IAuthService>();
-            var theme = Handler?.MauiContext?.Services?.GetService<IThemeService>();
-            var server = Handler?.MauiContext?.Services?.GetService<IServerConfigService>();
-            var history = Handler?.MauiContext?.Services?.GetService<IServerHistoryService>();
+            var auth = Resolve<IAuthService>(services);
+            var theme = Resolve<IThemeService>(services);
+            var server = Resolve<IServerConfigService>(services);
+            var history = Resolve<IServerHistoryService>(services);
             if (auth is null || theme is null || server is null || history is null)
                 throw new InvalidOperationException("Required services are not registered in the DI container.");
             shell = new AppShell(auth, theme, server, history);
@@ -70,6 +79,23 @@ public partial class App : Application
             // visible even if the display setup changed since last run.
             window.X = Math.Max(savedX, 0);
             window.Y = Math.Max(savedY, 0);
+            // Clamp to the current display bounds so the window doesn't launch
+            // off-screen if the monitor setup changed since last run.
+            try
+            {
+                var display = DeviceDisplay.MainDisplayInfo;
+                // DisplayInfo.Width/Height are in raw pixels; Density converts to DIPs.
+                var screenWidth = display.Width / display.Density;
+                var screenHeight = display.Height / display.Density;
+                // Keep at least 100px of the title bar visible on-screen.
+                window.X = Math.Min(window.X, Math.Max(0, screenWidth - 100));
+                window.Y = Math.Min(window.Y, Math.Max(0, screenHeight - 40));
+            }
+            catch
+            {
+                // DeviceDisplay can throw in headless/CI contexts; the >= 0 clamp
+                // above is the fallback.
+            }
             var savedW = Preferences.Default.Get(PrefW, DefaultWidth);
             var savedH = Preferences.Default.Get(PrefH, DefaultHeight);
             window.Width = Math.Max(savedW, MinWidth);

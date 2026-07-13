@@ -37,8 +37,8 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
         LogoutCommand = CreateCommand(async () => await LogoutAsync());
         ToggleThemeCommand = CreateCommand(async () => await ToggleThemeAsync());
         SwitchServerCommand = CreateCommand(async () => await SwitchServerAsync());
-        AttachFileCommand = CreateCommand(async () => await AttachFileAsync(), () => !IsBusy && SelectedChannel is not null);
-        AttachImageCommand = CreateCommand(async () => await AttachImageAsync(), () => !IsBusy && SelectedChannel is not null);
+        AttachFileCommand = CreateCommand(async () => await AttachFileAsync(), () => !IsUploading && SelectedChannel is not null);
+        AttachImageCommand = CreateCommand(async () => await AttachImageAsync(), () => !IsUploading && SelectedChannel is not null);
 
         _ws.MessageReceived += OnMessageReceived;
         _ws.StreamStarted += OnStreamStarted;
@@ -119,12 +119,18 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            await _auth.HydrateCurrentUserAsync();
+            // If the saved token is invalid, HydrateCurrentUserAsync forces
+            // logout and returns false — bail out before making more requests
+            // with a null token.
+            if (!await _auth.HydrateCurrentUserAsync())
+            {
+                StatusText = "会话已过期，请重新登录";
+                return;
+            }
             await LoadChannelsAsync();
 
             if (string.IsNullOrEmpty(_auth.Token))
             {
-                // Cannot connect without a token — user needs to re-login.
                 StatusText = "未登录，请重新登录";
                 return;
             }
@@ -211,6 +217,8 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
+            // Restore the draft so the user doesn't lose their typed text.
+            Draft = content;
             StatusText = $"发送失败: {ex.Message}";
         }
     }

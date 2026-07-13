@@ -30,8 +30,8 @@ public sealed class ServerConfigViewModel : ViewModelBase
             () => !IsBusy && !string.IsNullOrWhiteSpace(ServerUrl));
         ContinueCommand = CreateCommand(async () => await ContinueAsync(),
             () => !IsBusy && IsVerified);
-        SelectRecentCommand = CreateCommand<ServerHistoryEntry>(async e => await SelectRecentAsync(e!), () => !IsBusy);
-        RemoveRecentCommand = CreateCommand<ServerHistoryEntry>(async e => await RemoveRecentAsync(e!), () => !IsBusy);
+        SelectRecentCommand = CreateCommand<ServerHistoryEntry>(async e => await SelectRecentAsync(e!), _ => !IsBusy);
+        RemoveRecentCommand = CreateCommand<ServerHistoryEntry>(async e => await RemoveRecentAsync(e!), _ => !IsBusy);
         ToggleThemeCommand = CreateCommand(async () => await ToggleThemeAsync());
 
         _theme.ThemeChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshThemeLabel);
@@ -215,7 +215,6 @@ public sealed class ServerConfigViewModel : ViewModelBase
                 HasError = true;
                 ErrorMessage = "保存失败：服务器不可达，请重试";
                 StepStatus = string.Empty;
-                IsBusy = false;
                 return;
             }
 
@@ -228,8 +227,8 @@ public sealed class ServerConfigViewModel : ViewModelBase
             HasError = true;
             ErrorMessage = $"保存失败: {ex.Message}";
             StepStatus = string.Empty;
-            IsBusy = false;
         }
+        finally { IsBusy = false; }
     }
 
     private async Task SelectRecentAsync(ServerHistoryEntry entry)

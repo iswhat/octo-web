@@ -11,6 +11,7 @@ namespace OctoMaui.Services;
 public sealed class UpdateService : IUpdateService
 {
     private readonly IApiService _api;
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(10) };
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
     public UpdateService(IApiService api)
@@ -31,9 +32,10 @@ public sealed class UpdateService : IUpdateService
     {
         try
         {
-            // Query the server's version endpoint.
-            using var http = new HttpClient { BaseAddress = new Uri(_api.BaseUrl), Timeout = TimeSpan.FromSeconds(10) };
-            using var resp = await http.GetAsync("/v1/common/version", ct);
+            // Reuse a long-lived HttpClient to avoid socket exhaustion.
+            // BaseAddress is set per-call because the server URL can change.
+            _http.BaseAddress = new Uri(_api.BaseUrl);
+            using var resp = await _http.GetAsync("/v1/common/version", ct);
             if (!resp.IsSuccessStatusCode) return;
 
             var info = await resp.Content.ReadFromJsonAsync<VersionInfo>(Json, ct);

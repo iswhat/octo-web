@@ -27,7 +27,7 @@ public sealed class LoginViewModel : ViewModelBase
         _loginCommand = CreateCommand(async () => await LoginAsync(), () => !IsBusy);
         _toggleThemeCommand = CreateCommand(async () => await ToggleThemeAsync());
         _switchServerCommand = CreateCommand(() => SwitchServer());
-        _loginWithOidcCommand = CreateCommand<OidcProvider>(async p => await LoginWithOidcAsync(p!), () => !IsBusy);
+        _loginWithOidcCommand = CreateCommand<OidcProvider>(async p => await LoginWithOidcAsync(p!), _ => !IsBusy);
 
         _theme.ThemeChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshThemeLabel);
         _server.ServerInfoChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshOidcProviders);

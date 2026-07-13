@@ -36,6 +36,12 @@ public abstract class ViewModelBase : INotifyPropertyChanged
         => MainThread.BeginInvokeOnMainThread(
             () => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name)));
 
+    /// <summary>
+    /// Aggregate busy flag for command canExecute predicates. Derived classes
+    /// set this to disable send/attach/navigate commands during async work.
+    /// </summary>
+    public bool IsBusy { get => Get<bool>(); set => Set(value); }
+
     /// <summary>Create a command that auto-handles notify-can-execute changes.</summary>
     protected Command CreateCommand(Action execute, Func<bool>? canExecute = null)
         => new(execute, canExecute);

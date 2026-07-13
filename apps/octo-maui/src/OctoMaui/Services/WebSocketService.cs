@@ -97,6 +97,7 @@ public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
     {
         var buffer = new byte[65536];
         var sb = new StringBuilder();
+        const int MaxMessageSize = 1 * 1024 * 1024;  // 1 MB — close if exceeded
         try
         {
             while (!_cts!.IsCancellationRequested && _socket!.State == WebSocketState.Open)
@@ -112,6 +113,20 @@ public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
                         return;
                     }
                     sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                    // Guard against unbounded memory growth from a hostile or
+                    // buggy server streaming an oversized message.
+                    if (sb.Length > MaxMessageSize)
+                    {
+                        ConnectionClosed?.Invoke(new InvalidOperationException(
+                            $"WebSocket message exceeded {MaxMessageSize / 1024}KB limit."));
+                        try
+                        {
+                            await _socket.CloseAsync(WebSocketCloseStatus.MessageTooBig,
+                                "Message size limit exceeded", CancellationToken.None);
+                        }
+                        catch { /* ignore close errors */ }
+                        return;
+                    }
                 } while (!result.EndOfMessage);
 
                 HandleIncoming(sb.ToString());

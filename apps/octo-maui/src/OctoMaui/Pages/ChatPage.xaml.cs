@@ -25,6 +25,10 @@ public partial class ChatPage : ContentPage
         {
             try
             {
+                // Re-check count inside the deferred lambda — a channel switch
+                // or logout between the outer check and this callback can clear
+                // the collection.
+                if (_vm.Messages.Count == 0) return;
                 var last = _vm.Messages[^1];
                 MessagesList.ScrollTo(last, position: ScrollToPosition.End, animate: false);
             }
@@ -55,13 +59,17 @@ public partial class ChatPage : ContentPage
         try
         {
             var view = e.DataPackage.View;
-            // File drops on Windows provide paths as text; on other platforms
-            // the text may contain a file URI. Parse defensively.
-            if (view.Contains(StandardDataFormats.Text))
+            // Try text — file drops on Windows provide paths as text; on macOS
+            // the text may contain file:// URIs. GetTextAsync returns null/empty
+            // when text is not available, so no Contains guard is needed.
+            var text = await view.GetTextAsync();
+            if (!string.IsNullOrWhiteSpace(text))
             {
-                var text = await view.GetTextAsync();
                 var files = text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim().TrimStart('"').TrimEnd('"'))
+                    .Select(s => Uri.TryCreate(s, UriKind.Absolute, out var uri) && uri.IsFile
+                        ? uri.LocalPath  // convert file:// URIs (macOS) to local paths
+                        : s)
                     .Where(s => !string.IsNullOrEmpty(s) && File.Exists(s))
                     .ToList();
                 if (files.Count > 0)
