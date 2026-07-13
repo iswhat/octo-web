@@ -47,7 +47,8 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
         _ws.ConnectionClosed += OnConnectionClosed;
         _theme.ThemeChanged += OnThemeChanged;
         Messages.CollectionChanged += (_, _) => IsEmpty = Messages.Count == 0;
-        RefreshThemeLabel();
+        StatusText = string.Empty;  // CS8050: can't use property initializer
+        RefreshThemeLabel();        // sets ThemeLabel based on current theme
     }
 
     // --- bound properties ---
@@ -75,7 +76,7 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
 
     public string Draft { get => Get<string>(); set { Set(value); ((Command)SendCommand).ChangeCanExecute(); } }
     public bool IsLoading { get => Get<bool>(); set => Set(value); }
-    public string StatusText { get => Get<string>(); set => Set(value); } = string.Empty;
+    public string StatusText { get => Get<string>(); set => Set(value); }
 
     /// <summary>True when an AI agent is actively streaming a reply (typing indicator).</summary>
     public bool IsAgentTyping
@@ -104,7 +105,7 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>Localized label for the theme toggle button.</summary>
-    public string ThemeLabel { get => Get<string>(); set => Set(value); } = "主题";
+    public string ThemeLabel { get => Get<string>(); set => Set(value); }
 
     public ICommand SendCommand { get; }
     public ICommand LogoutCommand { get; }

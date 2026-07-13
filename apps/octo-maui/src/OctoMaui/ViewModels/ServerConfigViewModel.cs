@@ -26,9 +26,9 @@ public sealed class ServerConfigViewModel : ViewModelBase, IDisposable
         _theme = theme;
         _history = history;
 
-        // Pre-fill with the current URL if already configured.
-        ServerUrl = _server.ServerUrl;
-
+        // Assign commands BEFORE pre-filling ServerUrl — the ServerUrl
+        // setter calls ChangeCanExecute on these, which would NRE if they
+        // were still null.
         VerifyCommand = CreateCommand(async () => await VerifyAsync(),
             () => !IsBusy && !string.IsNullOrWhiteSpace(ServerUrl));
         ContinueCommand = CreateCommand(async () => await ContinueAsync(),
@@ -37,11 +37,19 @@ public sealed class ServerConfigViewModel : ViewModelBase, IDisposable
         RemoveRecentCommand = CreateCommand<ServerHistoryEntry>(async e => await RemoveRecentAsync(e!), _ => !IsBusy);
         ToggleThemeCommand = CreateCommand(async () => await ToggleThemeAsync());
 
+        // CS8050: can't use property initializers on non-auto properties,
+        // so set defaults here in the ctor.
+        StepStatus = string.Empty;
+        ErrorMessage = string.Empty;
+
+        // Pre-fill with the current URL if already configured.
+        ServerUrl = _server.ServerUrl;
+
         _themeChangedHandler = (_, _) => MainThread.BeginInvokeOnMainThread(RefreshThemeLabel);
         _historyChangedHandler = (_, _) => MainThread.BeginInvokeOnMainThread(RefreshHistory);
         _theme.ThemeChanged += _themeChangedHandler;
         _history.Changed += _historyChangedHandler;
-        RefreshThemeLabel();
+        RefreshThemeLabel();  // sets ThemeLabel based on current theme
         RefreshHistory();
     }
 
@@ -67,10 +75,10 @@ public sealed class ServerConfigViewModel : ViewModelBase, IDisposable
     // --- step-by-step verification status ---
 
     /// <summary>Current step description shown next to the spinner.</summary>
-    public string StepStatus { get => Get<string>(); set => Set(value); } = string.Empty;
+    public string StepStatus { get => Get<string>(); set => Set(value); }
 
     public bool HasError { get => Get<bool>(); set => Set(value); }
-    public string ErrorMessage { get => Get<string>(); set => Set(value); } = string.Empty;
+    public string ErrorMessage { get => Get<string>(); set => Set(value); }
 
     /// <summary>True after a successful verification (ping + config probe).</summary>
     public bool IsVerified
@@ -129,7 +137,7 @@ public sealed class ServerConfigViewModel : ViewModelBase, IDisposable
 
     // --- theme ---
 
-    public string ThemeLabel { get => Get<string>(); set => Set(value); } = "主题";
+    public string ThemeLabel { get => Get<string>(); set => Set(value); }
 
     // --- commands ---
 

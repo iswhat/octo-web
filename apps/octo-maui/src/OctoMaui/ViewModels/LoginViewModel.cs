@@ -43,7 +43,7 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
 
     // --- local login ---
 
-    public string ThemeLabel { get => Get<string>(); set => Set(value); } = "主题";
+    public string ThemeLabel { get => Get<string>(); set => Set(value); }
 
     public string Username { get => Get<string>(); set => Set(value); }
     public string Password { get => Get<string>(); set => Set(value); }
