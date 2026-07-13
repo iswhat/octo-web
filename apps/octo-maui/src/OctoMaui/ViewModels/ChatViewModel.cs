@@ -186,9 +186,11 @@ public sealed class ChatViewModel : ViewModelBase
         try
         {
             await _ws.SendAsync(SelectedChannel.Id, content);
-            // Optimistic local echo.
+            // Optimistic local echo with a client-generated temp id so we
+            // can de-dup when the server echoes the canonical message back.
             Messages.Add(new Message
             {
+                Id = "local-" + Guid.NewGuid().ToString("N"),
                 ChannelId = SelectedChannel.Id,
                 FromUid = _auth.CurrentUser?.Id ?? "me",
                 SenderName = _auth.CurrentUser?.DisplayName ?? "我",
@@ -205,6 +207,17 @@ public sealed class ChatViewModel : ViewModelBase
     private void OnMessageReceived(Message msg)
     {
         if (msg.ChannelId != SelectedChannel?.Id) return;
+
+        // De-dup: if the server echoes back a message we just optimistically
+        // added locally (same sender + content), remove the local echo.
+        if (msg.FromUid == _auth.CurrentUser?.Id)
+        {
+            var echo = Messages.FirstOrDefault(m =>
+                m.Id.StartsWith("local-") && m.Content == msg.Content);
+            if (echo is not null)
+                Messages.Remove(echo);
+        }
+
         // If this is the final version of a streamed message, remove the
         // streaming placeholder before adding the complete one.
         if (!string.IsNullOrEmpty(msg.Id) && _streamingMessages.TryGetValue(msg.Id, out var placeholder))

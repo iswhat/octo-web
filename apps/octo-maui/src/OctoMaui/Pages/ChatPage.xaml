@@ -71,17 +71,21 @@
                                            LineBreakMode="TailTruncation"
                                            MaxLines="1" />
                                 </VerticalStackLayout>
-                                <Label Grid.Column="1"
-                                       Text="{Binding UnreadCount}"
-                                       TextColor="White"
-                                       FontSize="11"
-                                       IsVisible="{Binding UnreadCount, Converter={StaticResource GreaterThanZeroConverter}}"
-                                       BackgroundColor="{DynamicResource Danger}"
-                                       HorizontalTextAlignment="Center"
-                                       VerticalTextAlignment="Center"
-                                       WidthRequest="20"
-                                       HeightRequest="20"
-                                       CornerRadius="10" />
+                                <Border Grid.Column="1"
+                                        BackgroundColor="{DynamicResource Danger}"
+                                        StrokeThickness="0"
+                                        StrokeShape="RoundRectangle 10"
+                                        WidthRequest="20"
+                                        HeightRequest="20"
+                                        IsVisible="{Binding UnreadCount, Converter={StaticResource GreaterThanZeroConverter}}"
+                                        HorizontalOptions="Center"
+                                        VerticalOptions="Center">
+                                    <Label Text="{Binding UnreadCount}"
+                                           TextColor="White"
+                                           FontSize="11"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center" />
+                                </Border>
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>

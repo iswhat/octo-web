@@ -35,8 +35,9 @@ public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
         _socket = new ClientWebSocket();
         _socket.Options.SetRequestHeader("Authorization", $"Bearer {token}");
 
-        var wsUrl = _options.WebSocketUrl + $"?token={Uri.EscapeDataString(token)}";
-        await _socket.ConnectAsync(new Uri(wsUrl), _cts.Token);
+        // Token is sent only via the Authorization header — NOT in the URL
+        // query string, which would leak into server/proxy access logs.
+        await _socket.ConnectAsync(new Uri(_options.WebSocketUrl), _cts.Token);
 
         _receiveLoop = Task.Run(ReceiveLoopAsync, _cts.Token);
     }

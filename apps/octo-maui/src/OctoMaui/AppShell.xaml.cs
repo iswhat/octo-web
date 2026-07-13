@@ -60,6 +60,8 @@ public partial class AppShell : Shell
 
     private async Task InitializeAndNavigateAsync()
     {
+        // Load the saved token from SecureStorage before checking auth state.
+        await _auth.InitializeAsync();
         await _server.InitializeAsync();
         Navigate();
     }

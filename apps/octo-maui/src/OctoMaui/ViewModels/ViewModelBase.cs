@@ -36,6 +36,17 @@ public abstract class ViewModelBase : INotifyPropertyChanged
     protected Command CreateCommand(Action execute, Func<bool>? canExecute = null)
         => new(execute, canExecute);
 
+    /// <summary>
+    /// Create an async command from a Func<Task>. Wraps the delegate so the
+    /// returned Command executes asynchronously (not async-void).
+    /// </summary>
+    protected Command CreateCommand(Func<Task> execute, Func<bool>? canExecute = null)
+        => new(async () => await execute(), canExecute);
+
     protected Command<T> CreateCommand<T>(Action<T> execute, Func<T, bool>? canExecute = null)
         => new(execute, canExecute);
+
+    /// <summary>Async parameterized command (not async-void).</summary>
+    protected Command<T> CreateCommand<T>(Func<T, Task> execute, Func<T, bool>? canExecute = null)
+        => new(async (param) => await execute(param), canExecute);
 }

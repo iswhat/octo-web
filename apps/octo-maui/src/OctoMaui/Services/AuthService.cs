@@ -4,9 +4,10 @@ namespace OctoMaui.Services;
 
 /// <summary>
 /// Holds the current session. Persists the token to
-/// <see cref="Preferences"/> so the user stays signed in across launches.
-/// Supports both the local username/password login and enterprise OIDC/SSO
-/// passport login.
+/// <see cref="SecureStorage"/> (DPAPI / Keychain / KeyStore) so the user
+/// stays signed in across launches without storing the bearer token in
+/// plaintext. Supports both the local username/password login and
+/// enterprise OIDC/SSO passport login.
 /// </summary>
 public sealed class AuthService : IAuthService
 {
@@ -24,8 +25,25 @@ public sealed class AuthService : IAuthService
     public AuthService(IApiService api)
     {
         _api = api;
-        _token = Preferences.Default.Get(TokenKey, (string?)null);
-        // CurrentUser is fetched lazily on first authenticated call.
+        // Token is loaded asynchronously via InitializeAsync() from
+        // SecureStorage — not in the constructor (SecureStorage is async-only).
+    }
+
+    /// <summary>
+    /// Load the saved token from SecureStorage. Must be called once during
+    /// app startup (before any auth-state check), typically from AppShell.
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        try
+        {
+            _token = await SecureStorage.Default.GetAsync(TokenKey);
+        }
+        catch
+        {
+            // SecureStorage may be unavailable in early launch / design-time.
+            _token = null;
+        }
     }
 
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(_token);
@@ -43,7 +61,7 @@ public sealed class AuthService : IAuthService
             var result = await _api.LoginAsync(username, password, ct);
             _token = result.Token;
             _user = result.User;
-            Preferences.Default.Set(TokenKey, _token);
+            await SecureStorage.Default.SetAsync(TokenKey, _token);
             RaiseChanged();
             return true;
         }
@@ -85,7 +103,7 @@ public sealed class AuthService : IAuthService
                 {
                     _token = r.Token;
                     _user = new User { Id = r.Uid, Name = r.Name };
-                    Preferences.Default.Set(TokenKey, _token);
+                    await SecureStorage.Default.SetAsync(TokenKey, _token);
                     progress?.Report("✓ 登录成功");
                     RaiseChanged();
                     return true;
@@ -116,7 +134,7 @@ public sealed class AuthService : IAuthService
     {
         _token = null;
         _user = null;
-        Preferences.Default.Remove(TokenKey);
+        SecureStorage.Default.Remove(TokenKey);
         RaiseChanged();
         await Task.CompletedTask;
     }

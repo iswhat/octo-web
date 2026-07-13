@@ -18,6 +18,9 @@ public partial class App : Application
     private const string PrefW = "win.w";
     private const string PrefH = "win.h";
 
+    /// <summary>Debounce token for SaveBounds — a drag-resize fires SizeChanged many times per second.</summary>
+    private CancellationTokenSource? _saveBoundsCts;
+
     public App()
     {
         InitializeComponent();
@@ -33,7 +36,14 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        var window = new Window(new AppShell());
+        // Resolve AppShell from DI so its constructor-injected services
+        // (auth, theme, server config, history) are populated.
+        var shell = Resolve<AppShell>() ?? new AppShell(
+            Handler?.MauiContext?.Services?.GetService<IAuthService>()!,
+            Handler?.MauiContext?.Services?.GetService<IThemeService>()!,
+            Handler?.MauiContext?.Services?.GetService<IServerConfigService>()!,
+            Handler?.MauiContext?.Services?.GetService<IServerHistoryService>()!);
+        var window = new Window(shell);
 
         // Default size + minimum size. On Windows this maps to the Win32
         // window's initial + min track size.
@@ -60,8 +70,9 @@ public partial class App : Application
         // Dynamic title: updated when auth state changes (see OnPageAppearing).
         window.Title = "OCTO";
 
-        // Persist geometry on move/resize so the next launch restores it.
-        window.SizeChanged += (_, _) => SaveBounds(window);
+        // Persist geometry on move/resize (debounced — SizeChanged fires
+        // many times per second during a drag-resize).
+        window.SizeChanged += (_, _) => SaveBoundsDebounced(window);
         window.PageAppearing += OnPageAppearing;
 
         // Initialize system tray + update check once DI is ready.
@@ -107,8 +118,12 @@ public partial class App : Application
                             $"当前版本 {update.CurrentVersion}，最新版本 {update.LatestVersion}。\n" +
                             $"点击确定打开下载页面。",
                             "确定", "稍后");
-                        if (ok && update.DownloadUrl is { } url)
+                        if (ok && update.DownloadUrl is { } url
+                            && Uri.TryCreate(url, UriKind.Absolute, out var dlUri)
+                            && (dlUri.Scheme == "http" || dlUri.Scheme == "https"))
+                        {
                             await Browser.OpenAsync(url);
+                        }
                     }
                 });
             _ = update.CheckForUpdatesAsync();
@@ -134,6 +149,22 @@ public partial class App : Application
         window.Title = auth.IsAuthenticated && auth.CurrentUser is { } u
             ? $"OCTO — {u.DisplayName}"
             : "OCTO";
+    }
+
+    /// <summary>
+    /// Debounce SaveBounds by 500ms so a drag-resize (which fires SizeChanged
+    /// many times per second) doesn't cause a persistent-store write storm.
+    /// </summary>
+    private void SaveBoundsDebounced(Window window)
+    {
+        _saveBoundsCts?.Cancel();
+        _saveBoundsCts = new CancellationTokenSource();
+        var ct = _saveBoundsCts.Token;
+        _ = Task.Delay(500, ct).ContinueWith(_ =>
+        {
+            if (!ct.IsCancellationRequested)
+                MainThread.BeginInvokeOnMainThread(() => SaveBounds(window));
+        }, TaskScheduler.Default);
     }
 
     private static void SaveBounds(Window window)

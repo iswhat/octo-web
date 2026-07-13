@@ -11,11 +11,23 @@ public sealed class LoginViewModel : ViewModelBase
     private readonly IThemeService _theme;
     private readonly IServerConfigService _server;
 
+    // Commands stored once (not re-created on each access) so that
+    // ChangeCanExecute and binding identity remain predictable.
+    private readonly ICommand _loginCommand;
+    private readonly ICommand _toggleThemeCommand;
+    private readonly ICommand _switchServerCommand;
+    private readonly ICommand _loginWithOidcCommand;
+
     public LoginViewModel(IAuthService auth, IThemeService theme, IServerConfigService server)
     {
         _auth = auth;
         _theme = theme;
         _server = server;
+
+        _loginCommand = CreateCommand(async () => await LoginAsync(), () => !IsBusy);
+        _toggleThemeCommand = CreateCommand(async () => await ToggleThemeAsync());
+        _switchServerCommand = CreateCommand(() => SwitchServer());
+        _loginWithOidcCommand = CreateCommand<OidcProvider>(async p => await LoginWithOidcAsync(p!), () => !IsBusy);
 
         _theme.ThemeChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshThemeLabel);
         _server.ServerInfoChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshOidcProviders);
@@ -33,9 +45,9 @@ public sealed class LoginViewModel : ViewModelBase
     public string ErrorMessage { get => Get<string>(); set => Set(value); }
     public bool IsBusy { get => Get<bool>(); set => Set(value); }
 
-    public ICommand LoginCommand => CreateCommand(async () => await LoginAsync(), () => !IsBusy);
-    public ICommand ToggleThemeCommand => CreateCommand(async () => await ToggleThemeAsync());
-    public ICommand SwitchServerCommand => CreateCommand(() => SwitchServer());
+    public ICommand LoginCommand => _loginCommand;
+    public ICommand ToggleThemeCommand => _toggleThemeCommand;
+    public ICommand SwitchServerCommand => _switchServerCommand;
 
     // --- OIDC / enterprise passport ---
 
@@ -58,7 +70,7 @@ public sealed class LoginViewModel : ViewModelBase
     public bool HasOidcStatus => !string.IsNullOrWhiteSpace(OidcStatus);
 
     /// <summary>Parameterized command: receives an <see cref="OidcProvider"/>.</summary>
-    public ICommand LoginWithOidcCommand => CreateCommand<OidcProvider>(async p => await LoginWithOidcAsync(p!), () => !IsBusy);
+    public ICommand LoginWithOidcCommand => _loginWithOidcCommand;
 
     private async Task LoginAsync()
     {

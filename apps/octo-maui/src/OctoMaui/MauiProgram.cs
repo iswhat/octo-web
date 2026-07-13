@@ -47,6 +47,9 @@ public static class MauiProgram
         builder.Services.AddTransient<Pages.ChatPage>();
         builder.Services.AddTransient<Pages.ServerConfigPage>();
 
+        // --- Shell ---
+        builder.Services.AddTransient<AppShell>();
+
         return builder.Build();
     }
 }

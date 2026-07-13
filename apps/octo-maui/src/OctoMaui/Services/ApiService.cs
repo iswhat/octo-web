@@ -205,12 +205,24 @@ public sealed class ApiService : IApiService
         // We only store the scheme + host + port.
         if (Uri.TryCreate(s, UriKind.Absolute, out var uri))
         {
+            // Reject cleartext HTTP for non-loopback hosts to prevent
+            // token / message interception over the wire.
+            if (uri.Scheme == "http" && !IsLoopback(uri.Host))
+                throw new ArgumentException(
+                    "HTTP is only allowed for localhost. Use HTTPS for remote servers.");
+
             var builder = new UriBuilder(uri.Scheme, uri.Host, uri.Port);
             return builder.ToString().TrimEnd('/');
         }
 
         throw new ArgumentException($"Invalid server URL: {url}");
     }
+
+    /// <summary>True for localhost / 127.0.0.1 / [::1].</summary>
+    private static bool IsLoopback(string host) =>
+        host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+        host.Equals("127.0.0.1") ||
+        host.Equals("[::1]");
 
     private HttpRequestMessage Authed(string token, HttpMethod method, string path)
     {
