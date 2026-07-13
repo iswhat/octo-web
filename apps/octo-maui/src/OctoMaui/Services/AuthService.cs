@@ -60,7 +60,7 @@ public sealed class AuthService : IAuthService
         {
             var result = await _api.LoginAsync(username, password, ct);
             _token = result.Token;
-            _user = result.User;
+            _user = result.ToUser();
             await SecureStorage.Default.SetAsync(TokenKey, _token);
             RaiseChanged();
             return true;

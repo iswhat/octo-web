@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using OctoMaui.Models;
 
 namespace OctoMaui.Services;
@@ -59,7 +60,7 @@ public sealed class ApiService : IApiService
     public async Task<LoginResult> LoginAsync(string username, string password, CancellationToken ct = default)
     {
         var payload = new { username, password };
-        var resp = await _http.PostAsJsonAsync("/api/v1/user/login", payload, ct);
+        var resp = await _http.PostAsJsonAsync("/v1/user/login", payload, ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
                    ?? throw new InvalidOperationException("Empty login response.");
@@ -68,28 +69,39 @@ public sealed class ApiService : IApiService
 
     public async Task<User> GetCurrentUserAsync(string token, CancellationToken ct = default)
     {
-        using var req = Authed(token, HttpMethod.Get, "/api/v1/user/current");
+        using var req = Authed(token, HttpMethod.Get, "/v1/user/current");
         return await SendAsync<User>(req, ct);
     }
 
-    public async Task<List<Channel>> GetChannelsAsync(string token, CancellationToken ct = default)
+    /// <remarks>
+    /// WIP: The octo-server does not expose a REST endpoint for listing
+    /// channels — conversation sync is handled by the WuKongIM SDK
+    /// (<c>wkstore.sync</c>), which has no .NET binding yet. This method
+    /// returns an empty list until WuKongIM .NET support is implemented.
+    /// See the README "Limitations" section.
+    /// </remarks>
+    public Task<List<Channel>> GetChannelsAsync(string token, CancellationToken ct = default)
     {
-        using var req = Authed(token, HttpMethod.Get, "/api/v1/channel/list");
-        return await SendAsync<List<Channel>>(req, ct);
+        return Task.FromResult(new List<Channel>());
     }
 
-    public async Task<List<Message>> GetMessagesAsync(string token, string channelId, int limit = 50, long? beforeTimestamp = null, CancellationToken ct = default)
+    /// <remarks>
+    /// WIP: The octo-server does not expose a REST endpoint for message
+    /// history — messages are fetched via the WuKongIM sync API. This method
+    /// returns an empty list until WuKongIM .NET support is implemented.
+    /// See the README "Limitations" section.
+    /// </remarks>
+    public Task<List<Message>> GetMessagesAsync(string token, string channelId, int limit = 50, long? beforeTimestamp = null, CancellationToken ct = default)
     {
-        var path = $"/api/v1/channel/{Uri.EscapeDataString(channelId)}/messages?limit={limit}";
-        if (beforeTimestamp is { } ts) path += $"&before={ts}";
-        using var req = Authed(token, HttpMethod.Get, path);
-        return await SendAsync<List<Message>>(req, ct);
+        return Task.FromResult(new List<Message>());
     }
 
     public async Task<Message> SendMessageAsync(string token, string channelId, string content, CancellationToken ct = default)
     {
+        // The octo-server uses a flat /v1/message/send endpoint (not a
+        // per-channel route). The channel_id is passed in the payload.
         var payload = new { channel_id = channelId, content, message_type = (int)MessageType.Text };
-        using var req = Authed(token, HttpMethod.Post, $"/api/v1/channel/{Uri.EscapeDataString(channelId)}/message/send");
+        using var req = Authed(token, HttpMethod.Post, "/v1/message/send");
         req.Content = JsonContent.Create(payload);
         return await SendAsync<Message>(req, ct);
     }
@@ -97,7 +109,9 @@ public sealed class ApiService : IApiService
     /// <inheritdoc />
     public async Task<Message> UploadFileAsync(string token, string channelId, Stream fileStream, string fileName, string contentType, CancellationToken ct = default)
     {
-        using var req = Authed(token, HttpMethod.Post, $"/api/v1/channel/{Uri.EscapeDataString(channelId)}/message/upload");
+        // The octo-server uses a flat /v1/file/upload endpoint (not a
+        // per-channel route). The channel_id is passed as a form field.
+        using var req = Authed(token, HttpMethod.Post, "/v1/file/upload");
         using var multipart = new MultipartFormDataContent();
         var fileContent = new StreamContent(fileStream);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
@@ -265,9 +279,22 @@ public sealed class ApiService : IApiService
     }
 }
 
-/// <summary>Login response from octo-server.</summary>
+/// <summary>
+/// Login response from octo-server. The server returns a flat structure
+/// (<c>{ token, uid, name, sex, ... }</c>), not a nested
+/// <c>{ token, user: { id, ... } }</c> — so we map the fields directly.
+/// </summary>
 public sealed class LoginResult
 {
+    [JsonPropertyName("token")]
     public string Token { get; set; } = string.Empty;
-    public User User { get; set; } = new();
+
+    [JsonPropertyName("uid")]
+    public string Uid { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Constructs a <see cref="User"/> from the flat login response.</summary>
+    public User ToUser() => new() { Id = Uid, Name = Name };
 }

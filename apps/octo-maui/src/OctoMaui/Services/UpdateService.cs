@@ -8,6 +8,12 @@ namespace OctoMaui.Services;
 /// octo-server to discover the latest client release. Compares semver
 /// strings and fires <see cref="UpdateFound"/> when a newer version exists.
 /// </summary>
+/// <remarks>
+/// WIP: The <c>/v1/common/version</c> endpoint may not exist on all
+/// deployments. The check is best-effort and silently returns "no update"
+/// (via the catch block) if the endpoint is unavailable. This will be
+/// revisited once the server-side version endpoint is finalized.
+/// </remarks>
 public sealed class UpdateService : IUpdateService
 {
     private readonly IApiService _api;

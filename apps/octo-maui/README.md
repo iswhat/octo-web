@@ -221,22 +221,34 @@ apps/octo-maui/
 
 客户端使用以下 `octo-server` 端点：
 
-| 端点 | 方法 | 用途 |
-|---|---|---|
-| `/` | GET | Ping 连通性检查（任意 HTTP 响应即可） |
-| `/api/v1/user/login` | POST | 本地用户名密码登录 |
-| `/api/v1/user/current` | GET | 获取当前用户信息（需 token） |
-| `/api/v1/channel/list` | GET | 获取频道列表 |
-| `/api/v1/channel/{id}/messages` | GET | 获取频道消息历史 |
-| `/api/v1/channel/{id}/message/send` | POST | 发送消息 |
-| `/api/v1/channel/{id}/message/upload` | POST | 上传文件 / 图片（multipart/form-data） |
-| `/v1/common/appconfig` | GET | 获取服务端配置（含 OIDC 提供商） |
-| `/v1/common/version` | GET | 获取最新客户端版本（用于自动更新检查） |
-| `/v1/user/thirdlogin/authcode` | GET | 获取 OIDC 一次性授权码 |
-| `/v1/user/thirdlogin/authstatus` | GET | 轮询 OIDC 登录状态 |
+| 端点 | 方法 | 用途 | 状态 |
+|---|---|---|---|
+| `/` | GET | Ping 连通性检查（任意 HTTP 响应即可） | ✅ |
+| `/v1/user/login` | POST | 本地用户名密码登录（flat 响应：`{token, uid, name, ...}`） | ✅ |
+| `/v1/user/current` | GET | 获取当前用户信息（需 token） | ✅ |
+| `/v1/message/send` | POST | 发送消息（flat 路径，`channel_id` 在 payload） | ✅ |
+| `/v1/file/upload` | POST | 上传文件 / 图片（multipart/form-data，`channel_id` 在表单） | ✅ |
+| `/v1/common/appconfig` | GET | 获取服务端配置（含 OIDC 提供商） | ✅ |
+| `/v1/common/version` | GET | 获取最新客户端版本（用于自动更新检查） | WIP |
+| `/v1/user/thirdlogin/authcode` | GET | 获取 OIDC 一次性授权码 | ✅ |
+| `/v1/user/thirdlogin/authstatus` | GET | 轮询 OIDC 登录状态 | ✅ |
 
 > 认证 header 为 `token: <value>`（非 `Bearer`），与 web 客户端一致。
-> REST 端点使用 `/api/v1` 前缀，OIDC 端点使用 `/v1/` 前缀。
+> MAUI 是直连客户端（非 nginx 反代），所有 REST 端点统一使用 `/v1/` 前缀。
+
+### 已知限制（WIP）
+
+octo-server 的实时通讯使用 **WuKongIM**（非自定义 `/ws` + JSON 协议）。以下功能
+为 scaffold，等待 WuKongIM .NET 客户端实现后替换：
+
+- **WebSocketService** — 当前实现假设 JSON-over-`/ws` 协议。真实服务器使用
+  WuKongIM cmd-based 二进制协议，IM 地址通过 `GET /v1/users/:uid/im` 动态获取。
+- **频道列表（GetChannelsAsync）** — 返回空列表。真实对话列表通过 WuKongIM
+  `wkstore.sync` 获取。
+- **消息历史（GetMessagesAsync）** — 返回空列表。真实消息历史通过 WuKongIM
+  sync API 获取。
+- **自动更新（UpdateService）** — `/v1/common/version` 端点可能不存在于所有部署，
+  检查为 best-effort，失败时静默跳过。
 
 ## 开发状态
 
@@ -317,8 +329,23 @@ apps/octo-maui/
 - `ChatViewModel.HandleDropAsync` `IsUploading` 改为包裹整个批次
 - `AndroidManifest.xml` `allowBackup="false"`（防止 `adb backup` 提取 token）
 
+**第六轮**（yujiawei API 契约审阅，5 个）：
+- **P0-3 登录响应**：`LoginResult` 从嵌套 `{Token, User:{Id}}` 改为 flat
+  `{token, uid, name}`，`User.Id` JSON 映射改为 `uid`，新增 `ToUser()` 方法
+- **P0-2 REST 端点**：`/channel/{id}/message/send` → flat `/v1/message/send`，
+  `/channel/{id}/message/upload` → flat `/v1/file/upload`；`/channel/list` 和
+  `/channel/{id}/messages` 标记为 WIP（依赖 WuKongIM sync，返回空列表）
+- **P0-1 WebSocket 协议**：`WebSocketService` 和 `ApiOptions.WebSocketUrl` 添加
+  WIP 注释，说明服务器使用 WuKongIM cmd-based 二进制协议（非 JSON-over-`/ws`）
+- **P1-1 REST base prefix**：所有 `/api/v1/` 统一改为 `/v1/`（MAUI 为直连客户端，
+  非 nginx 反代，与 web 客户端的 `origin + "/v1/"` 一致）
+- **P1-2 auto-update 端点**：`UpdateService` 添加 WIP 注释，说明
+  `/v1/common/version` 可能不存在，检查为 best-effort
+
 待优化：
-（暂无 — 所有已知待优化项均已完成）
+- WuKongIM .NET 客户端实现（替换当前 WebSocketService scaffold）
+- 频道列表和消息历史通过 WuKongIM sync API 获取
+- 确认 `/v1/common/version` 端点的真实路径（或移除 auto-update 功能）
 
 ## 许可
 

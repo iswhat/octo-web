@@ -9,6 +9,14 @@ namespace OctoMaui.Services;
 /// Real-time client over octo-server WebSocket. Receives pushed messages,
 /// presence, and channel updates; sends outgoing chat text.
 /// </summary>
+/// <remarks>
+/// WIP: The octo-server uses <b>WuKongIM</b> for real-time messaging, not a
+/// plain JSON-over-/ws endpoint. The IM address is obtained via
+/// <c>GET /v1/users/:uid/im</c> and the WuKongIM SDK uses a cmd-based
+/// binary protocol (not the JSON envelope assumed here). This implementation
+/// is a scaffold and will be replaced by a WuKongIM .NET client when
+/// available. See the README "Limitations" section.
+/// </remarks>
 public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
 {
     private readonly ApiOptions _options;

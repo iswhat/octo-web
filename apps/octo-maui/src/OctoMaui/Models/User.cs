@@ -5,6 +5,9 @@ namespace OctoMaui.Models;
 /// <summary>A user / agent identity in the OCTO platform.</summary>
 public sealed class User
 {
+    /// <summary>Server user id. The octo-server login response uses the
+    /// flat field name "uid" (not "id"), so we map it explicitly.</summary>
+    [JsonPropertyName("uid")]
     public string Id { get; set; } = string.Empty;
 
     public string Name { get; set; } = string.Empty;
