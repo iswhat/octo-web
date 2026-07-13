@@ -58,11 +58,11 @@ public partial class ChatPage : ContentPage
 
         try
         {
-            var view = e.DataPackage.View;
-            // Try text — file drops on Windows provide paths as text; on macOS
-            // the text may contain file:// URIs. GetTextAsync returns null/empty
-            // when text is not available, so no Contains guard is needed.
-            var text = await view.GetTextAsync();
+            // MAUI's DropEventArgs.Data is a DataPackageView; GetTextAsync
+            // returns null/empty when text is not available. File drops on
+            // Windows provide paths as text; on macOS the text may contain
+            // file:// URIs.
+            var text = await e.Data.GetTextAsync();
             if (!string.IsNullOrWhiteSpace(text))
             {
                 var files = text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
@@ -92,9 +92,10 @@ public partial class ChatPage : ContentPage
     protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
     {
         base.OnNavigatedFrom(args);
-        // Release singleton service event subscriptions held by the
-        // Transient ViewModel to avoid memory leaks.
-        if (BindingContext is ChatViewModel vm)
-            vm.Dispose();
+        // Do NOT dispose ChatViewModel on navigation — OnNavigatedFrom fires
+        // on any navigation away (not just teardown), and the VM's WebSocket
+        // handlers are wired only in the constructor. Disposing would make
+        // the client permanently deaf to server pushes when the user
+        // navigates back. Cleanup happens via LogoutAsync/SwitchServerAsync.
     }
 }

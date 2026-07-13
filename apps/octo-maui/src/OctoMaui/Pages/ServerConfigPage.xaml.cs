@@ -12,4 +12,12 @@ public partial class ServerConfigPage : ContentPage
         _vm = vm;
         BindingContext = _vm;
     }
+
+    protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
+    {
+        base.OnNavigatedFrom(args);
+        // Release singleton service event subscriptions held by the
+        // Transient ViewModel to avoid memory leaks.
+        _vm.Dispose();
+    }
 }

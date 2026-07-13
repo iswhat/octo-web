@@ -5,11 +5,14 @@ using OctoMaui.Services;
 
 namespace OctoMaui.ViewModels;
 
-public sealed class LoginViewModel : ViewModelBase
+public sealed class LoginViewModel : ViewModelBase, IDisposable
 {
     private readonly IAuthService _auth;
     private readonly IThemeService _theme;
     private readonly IServerConfigService _server;
+    private readonly EventHandler _themeChangedHandler;
+    private readonly EventHandler _serverInfoChangedHandler;
+    private bool _disposed;
 
     // Commands stored once (not re-created on each access) so that
     // ChangeCanExecute and binding identity remain predictable.
@@ -29,8 +32,10 @@ public sealed class LoginViewModel : ViewModelBase
         _switchServerCommand = CreateCommand(() => SwitchServer());
         _loginWithOidcCommand = CreateCommand<OidcProvider>(async p => await LoginWithOidcAsync(p!), _ => !IsBusy);
 
-        _theme.ThemeChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshThemeLabel);
-        _server.ServerInfoChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshOidcProviders);
+        _themeChangedHandler = (_, _) => MainThread.BeginInvokeOnMainThread(RefreshThemeLabel);
+        _serverInfoChangedHandler = (_, _) => MainThread.BeginInvokeOnMainThread(RefreshOidcProviders);
+        _theme.ThemeChanged += _themeChangedHandler;
+        _server.ServerInfoChanged += _serverInfoChangedHandler;
 
         RefreshThemeLabel();
         RefreshOidcProviders();
@@ -157,5 +162,16 @@ public sealed class LoginViewModel : ViewModelBase
     private static void SwitchServer()
     {
         Shell.Current.GoToAsync("//server-config");
+    }
+
+    // --- IDisposable ---
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _theme.ThemeChanged -= _themeChangedHandler;
+        _server.ServerInfoChanged -= _serverInfoChangedHandler;
+        GC.SuppressFinalize(this);
     }
 }

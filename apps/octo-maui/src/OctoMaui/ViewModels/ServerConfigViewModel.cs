@@ -11,11 +11,14 @@ namespace OctoMaui.ViewModels;
 /// server capabilities → save and continue. Also supports quick-reconnect via
 /// saved history entries.
 /// </summary>
-public sealed class ServerConfigViewModel : ViewModelBase
+public sealed class ServerConfigViewModel : ViewModelBase, IDisposable
 {
     private readonly IServerConfigService _server;
     private readonly IThemeService _theme;
     private readonly IServerHistoryService _history;
+    private readonly EventHandler _themeChangedHandler;
+    private readonly EventHandler _historyChangedHandler;
+    private bool _disposed;
 
     public ServerConfigViewModel(IServerConfigService server, IThemeService theme, IServerHistoryService history)
     {
@@ -34,8 +37,10 @@ public sealed class ServerConfigViewModel : ViewModelBase
         RemoveRecentCommand = CreateCommand<ServerHistoryEntry>(async e => await RemoveRecentAsync(e!), _ => !IsBusy);
         ToggleThemeCommand = CreateCommand(async () => await ToggleThemeAsync());
 
-        _theme.ThemeChanged += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshThemeLabel);
-        _history.Changed += (_, _) => MainThread.BeginInvokeOnMainThread(RefreshHistory);
+        _themeChangedHandler = (_, _) => MainThread.BeginInvokeOnMainThread(RefreshThemeLabel);
+        _historyChangedHandler = (_, _) => MainThread.BeginInvokeOnMainThread(RefreshHistory);
+        _theme.ThemeChanged += _themeChangedHandler;
+        _history.Changed += _historyChangedHandler;
         RefreshThemeLabel();
         RefreshHistory();
     }
@@ -280,5 +285,16 @@ public sealed class ServerConfigViewModel : ViewModelBase
             AppTheme.Dark => "深色",
             _ => "跟随系统",
         };
+    }
+
+    // --- IDisposable ---
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _theme.ThemeChanged -= _themeChangedHandler;
+        _history.Changed -= _historyChangedHandler;
+        GC.SuppressFinalize(this);
     }
 }

@@ -96,13 +96,16 @@ public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
     private async Task ReceiveLoopAsync()
     {
         var buffer = new byte[65536];
-        var sb = new StringBuilder();
         const int MaxMessageSize = 1 * 1024 * 1024;  // 1 MB — close if exceeded
         try
         {
             while (!_cts!.IsCancellationRequested && _socket!.State == WebSocketState.Open)
             {
-                sb.Clear();
+                // Accumulate raw bytes across fragments and decode once after
+                // EndOfMessage. Per-frame Encoding.UTF8.GetString is stateless
+                // and would corrupt multi-byte chars (CJK/emoji) split across
+                // the 64 KB buffer boundary.
+                using var ms = new MemoryStream();
                 WebSocketReceiveResult result;
                 do
                 {
@@ -112,10 +115,10 @@ public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
                         ConnectionClosed?.Invoke(new InvalidOperationException("Server closed the connection."));
                         return;
                     }
-                    sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                    ms.Write(buffer, 0, result.Count);
                     // Guard against unbounded memory growth from a hostile or
                     // buggy server streaming an oversized message.
-                    if (sb.Length > MaxMessageSize)
+                    if (ms.Length > MaxMessageSize)
                     {
                         ConnectionClosed?.Invoke(new InvalidOperationException(
                             $"WebSocket message exceeded {MaxMessageSize / 1024}KB limit."));
@@ -129,7 +132,8 @@ public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
                     }
                 } while (!result.EndOfMessage);
 
-                HandleIncoming(sb.ToString());
+                var message = Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
+                HandleIncoming(message);
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }

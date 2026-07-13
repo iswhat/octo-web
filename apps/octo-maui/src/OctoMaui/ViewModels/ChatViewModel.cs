@@ -174,6 +174,9 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
         {
             var msgs = await _api.GetMessagesAsync(_auth.Token!, SelectedChannel.Id, limit: 50, ct: ct);
             if (ct.IsCancellationRequested) return;
+            // Clear streaming placeholders from the previous channel — they
+            // hold references to Message objects no longer in the collection.
+            _streamingMessages.Clear();
             Messages.Clear();
             foreach (var m in msgs) Messages.Add(m);
         }
@@ -362,29 +365,34 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
     public async Task HandleDropAsync(IEnumerable<string> filePaths)
     {
         if (SelectedChannel is null || IsUploading) return;
-        foreach (var path in filePaths)
+        // Set IsUploading once for the entire batch — resetting it per file
+        // would flip the indicator false between files and defeat the
+        // single-flight guard.
+        IsUploading = true;
+        try
         {
-            try
+            foreach (var path in filePaths)
             {
-                using var stream = File.OpenRead(path);
-                var fileName = Path.GetFileName(path);
-                var contentType = GuessContentType(fileName);
-                IsUploading = true;
-                StatusText = $"正在上传 {fileName}…";
-                await _api.UploadFileAsync(_auth.Token!, SelectedChannel.Id, stream, fileName, contentType);
+                try
+                {
+                    using var stream = File.OpenRead(path);
+                    var fileName = Path.GetFileName(path);
+                    var contentType = GuessContentType(fileName);
+                    StatusText = $"正在上传 {fileName}…";
+                    await _api.UploadFileAsync(_auth.Token!, SelectedChannel.Id, stream, fileName, contentType);
+                }
+                catch (Exception ex)
+                {
+                    StatusText = $"上传失败: {ex.Message}";
+                    // Continue with remaining files.
+                }
             }
-            catch (Exception ex)
-            {
-                StatusText = $"上传失败: {ex.Message}";
-                // Log and continue with remaining files.
-                continue;
-            }
-            finally
-            {
-                IsUploading = false;
-            }
+            StatusText = "上传完成";
         }
-        StatusText = "上传完成";
+        finally
+        {
+            IsUploading = false;
+        }
     }
 
     /// <summary>

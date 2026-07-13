@@ -167,9 +167,19 @@ public sealed class ApiService : IApiService
     public string BuildAuthorizeUrl(OidcProvider provider, string authCode)
     {
         var path = provider.AuthorizePath;
-        var full = path.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-            ? path
-            : new Uri(new Uri(_options.BaseUrl), path).ToString();
+        // Determine absolute-vs-relative via Uri.TryCreate instead of
+        // StartsWith("http") which would also match "httpevil://…" and
+        // other scheme-launch primitives. Only http/https are allowed.
+        string full;
+        if (Uri.TryCreate(path, UriKind.Absolute, out var abs) &&
+            (abs.Scheme == "https" || abs.Scheme == "http"))
+        {
+            full = path;
+        }
+        else
+        {
+            full = new Uri(new Uri(_options.BaseUrl), path).ToString();
+        }
         var sep = full.Contains('?') ? "&" : "?";
         return $"{full}{sep}authcode={Uri.EscapeDataString(authCode)}&flag=1";
     }
