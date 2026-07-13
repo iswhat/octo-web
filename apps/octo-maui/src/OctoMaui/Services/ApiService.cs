@@ -80,6 +80,139 @@ public sealed class ApiService : IApiService
         return body;
     }
 
+    /// <inheritdoc />
+    public async Task<LoginResult> EmailLoginAsync(string email, string password, CancellationToken ct = default)
+    {
+        // Mirrors login_vm.tsx requestEmailLogin: { email, password, flag, device }.
+        // The web client uses flag=1; MAUI is a PC client so flag=2 (matches
+        // the value sent in user/login).
+        var payload = new
+        {
+            email,
+            password,
+            flag = 2,
+            device = GetDevice(),
+        };
+        var resp = await _http.PostAsJsonAsync("/v1/user/emaillogin", payload, ct);
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
+                   ?? throw new InvalidOperationException("Empty email login response.");
+        return body;
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginResult> RegisterAsync(string username, string name, string password, CancellationToken ct = default)
+    {
+        // Mirrors login_vm.tsx requestRegister: { username, name, password, flag, device }.
+        // On success the server returns a LoginResult (auto-login after register).
+        var payload = new
+        {
+            username,
+            name,
+            password,
+            flag = 2,
+            device = GetDevice(),
+        };
+        var resp = await _http.PostAsJsonAsync("/v1/user/usernameregister", payload, ct);
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
+                   ?? throw new InvalidOperationException("Empty register response.");
+        return body;
+    }
+
+    /// <inheritdoc />
+    public async Task SendEmailCodeAsync(string email, int codeType, CancellationToken ct = default)
+    {
+        // Mirrors login_vm.tsx requestEmailSendCode: { email, code_type }.
+        // code_type: 0 = register, 1 = forget password.
+        var payload = new
+        {
+            email,
+            code_type = codeType,
+        };
+        var resp = await _http.PostAsJsonAsync("/v1/user/email/sendcode", payload, ct);
+        resp.EnsureSuccessStatusCode();
+        // No structured response body — success is indicated by 2xx status.
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginResult> EmailRegisterAsync(string email, string password, string name, string code, CancellationToken ct = default)
+    {
+        // Mirrors login_vm.tsx requestEmailRegister:
+        // { email, password, name, code, flag, device }.
+        var payload = new
+        {
+            email,
+            password,
+            name,
+            code,
+            flag = 2,
+            device = GetDevice(),
+        };
+        var resp = await _http.PostAsJsonAsync("/v1/user/emailregister", payload, ct);
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
+                   ?? throw new InvalidOperationException("Empty email register response.");
+        return body;
+    }
+
+    /// <inheritdoc />
+    public async Task ForgetPasswordAsync(string email, string code, string newPassword, CancellationToken ct = default)
+    {
+        // Mirrors login_vm.tsx requestForgetPassword:
+        // { email, code, new_password }.
+        var payload = new
+        {
+            email,
+            code,
+            new_password = newPassword,
+        };
+        var resp = await _http.PostAsJsonAsync("/v1/user/email/forgetpwd", payload, ct);
+        resp.EnsureSuccessStatusCode();
+        // No structured response body — success is indicated by 2xx status.
+    }
+
+    // --- QR code login (state machine driven, see login_vm.tsx advance) ---
+    // These endpoints use the /v1/* path prefix and do not require a token —
+    // they're pre-authentication (same as the OIDC endpoints above).
+
+    /// <inheritdoc />
+    public async Task<QrCodeInfo> GetQrCodeAsync(CancellationToken ct = default)
+    {
+        // Mirrors login_vm.tsx requestUUID: GET user/loginuuid with the device
+        // info sent as query params (web client uses { param: device }).
+        var query = GetDeviceQuery();
+        using var resp = await _http.GetAsync($"/v1/user/loginuuid?{query}", ct);
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadFromJsonAsync<QrCodeInfo>(Json, ct)
+                   ?? throw new InvalidOperationException("Empty loginuuid response.");
+        return body;
+    }
+
+    /// <inheritdoc />
+    public async Task<QrLoginStatus> PollQrLoginStatusAsync(string uuid, CancellationToken ct = default)
+    {
+        // Mirrors login_vm.tsx pullLoginStatus:
+        // GET user/loginstatus?uuid=${uuid}.
+        using var resp = await _http.GetAsync($"/v1/user/loginstatus?uuid={Uri.EscapeDataString(uuid)}", ct);
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadFromJsonAsync<QrLoginStatus>(Json, ct)
+                   ?? new QrLoginStatus { Status = "expired" };
+        return body;
+    }
+
+    /// <inheritdoc />
+    public async Task<LoginResult> LoginWithAuthCodeAsync(string authCode, CancellationToken ct = default)
+    {
+        // Mirrors login_vm.tsx requestLogin: POST user/login_authcode/${authCode}.
+        // No JSON body — the authCode is in the path.
+        using var resp = await _http.PostAsync($"/v1/user/login_authcode/{Uri.EscapeDataString(authCode)}", content: null, ct);
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
+                   ?? throw new InvalidOperationException("Empty authcode login response.");
+        return body;
+    }
+
     /// <remarks>
     /// WIP: The web client never calls <c>GET /v1/user/current</c> to fetch
     /// the current user — it persists the login response and hydrates from
@@ -367,16 +500,32 @@ public sealed class ApiService : IApiService
     /// <summary>
     /// Build the device info payload sent with login (mirrors
     /// <c>login_vm.tsx</c> <c>getDevice()</c>). MAUI Essentials provides
-    /// <see cref="DeviceInfo.Current"/> for platform/model/name.
+    /// <see cref="DeviceInfo.Current"/> for platform/model/name. Returned as
+    /// a dictionary so the same structure can be serialized into JSON
+    /// payloads (snake_case keys) and URL-encoded into query strings for
+    /// <c>GET /v1/user/loginuuid</c>.
     /// </summary>
-    private static object GetDevice()
+    private static Dictionary<string, string> GetDevice()
     {
-        return new
+        return new Dictionary<string, string>
         {
-            device_id = GetOrCreateDeviceId(),
-            device_name = DeviceInfo.Current.Name,
-            device_model = DeviceInfo.Current.Model,
+            ["device_id"] = GetOrCreateDeviceId(),
+            ["device_name"] = DeviceInfo.Current.Name,
+            ["device_model"] = DeviceInfo.Current.Model,
         };
+    }
+
+    /// <summary>
+    /// Build a URL-encoded query string from the device info (used by
+    /// <c>GET /v1/user/loginuuid</c> which expects the device fields as
+    /// query parameters, mirroring the web client's
+    /// <c>{ param: device }</c> form).
+    /// </summary>
+    private static string GetDeviceQuery()
+    {
+        var device = GetDevice();
+        return string.Join("&", device.Select(kv =>
+            $"{kv.Key}={Uri.EscapeDataString(kv.Value ?? string.Empty)}"));
     }
 
     /// <summary>
@@ -417,7 +566,7 @@ public sealed class ApiService : IApiService
     /// Mirrors <c>sanitizeHttpUrl</c> in
     /// <c>packages/dmworkbase/src/Service/OidcConfig.ts</c>.
     /// </summary>
-    private static string? SanitizeHttpUrl(JsonElement element, string propertyName)
+    internal static string? SanitizeHttpUrl(JsonElement element, string propertyName)
     {
         if (!element.TryGetProperty(propertyName, out var el) || el.ValueKind != JsonValueKind.String)
             return null;

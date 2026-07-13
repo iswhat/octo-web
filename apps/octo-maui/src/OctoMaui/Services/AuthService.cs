@@ -66,11 +66,119 @@ public sealed class AuthService : IAuthService
         try
         {
             var result = await _api.LoginAsync(username, password, ct);
-            _token = result.Token;
-            _user = result.ToUser();
-            await SecureStorage.Default.SetAsync(TokenKey, _token);
-            PersistUser(_user);
-            RaiseChanged();
+            PersistSession(result);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> EmailLoginAsync(string email, string password, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _api.EmailLoginAsync(email, password, ct);
+            PersistSession(result);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> RegisterAsync(string username, string name, string password, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _api.RegisterAsync(username, name, password, ct);
+            PersistSession(result);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> SendEmailCodeAsync(string email, int codeType, CancellationToken ct = default)
+    {
+        try
+        {
+            await _api.SendEmailCodeAsync(email, codeType, ct);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> EmailRegisterAsync(string email, string password, string name, string code, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _api.EmailRegisterAsync(email, password, name, code, ct);
+            PersistSession(result);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ForgetPasswordAsync(string email, string code, string newPassword, CancellationToken ct = default)
+    {
+        try
+        {
+            await _api.ForgetPasswordAsync(email, code, newPassword, ct);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> LoginWithAuthCodeAsync(string authCode, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _api.LoginWithAuthCodeAsync(authCode, ct);
+            PersistSession(result);
             return true;
         }
         catch (OperationCanceledException)
@@ -176,6 +284,24 @@ public sealed class AuthService : IAuthService
     private void RaiseChanged()
         => MainThread.BeginInvokeOnMainThread(
             () => AuthStateChanged?.Invoke(this, EventArgs.Empty));
+
+    /// <summary>
+    /// Apply a successful <see cref="LoginResult"/>: store the token in
+    /// <see cref="SecureStorage"/>, persist the user profile to
+    /// <see cref="Preferences"/>, and raise
+    /// <see cref="AuthStateChanged"/>. Shared by all login/register paths
+    /// (password, email, register, email-register, QR authcode) that return
+    /// a <see cref="LoginResult"/>. Mirrors <c>loginSuccess</c> /
+    /// <c>applyLoginResp</c> in the web client.
+    /// </summary>
+    private async Task PersistSession(LoginResult result)
+    {
+        _token = result.Token;
+        _user = result.ToUser();
+        await SecureStorage.Default.SetAsync(TokenKey, _token);
+        PersistUser(_user);
+        RaiseChanged();
+    }
 
     /// <summary>
     /// Persist non-sensitive user profile fields to <see cref="Preferences"/>.

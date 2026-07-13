@@ -321,7 +321,7 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
             // UploadFileAsync now returns the download URL (string) instead of
             // a full Message — we build a local placeholder Message from it so
             // the attachment shows up immediately in the chat surface.
-            var downloadUrl = await _api.UploadFileAsync(_auth.Token!, SelectedChannel.Id, stream, result.FileName, contentType);
+            var downloadUrl = await _api.UploadFileAsync(_auth.Token!, SelectedChannel.Id, SelectedChannel.Type, stream, result.FileName, contentType);
             AddUploadedMessage(MessageType.File, result.FileName, downloadUrl, fileSize);
             StatusText = "已上传";
         }
@@ -352,7 +352,7 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
             var fileSize = stream.CanSeek ? stream.Length : 0;
             IsUploading = true;
             StatusText = "正在上传图片…";
-            var downloadUrl = await _api.UploadFileAsync(_auth.Token!, SelectedChannel.Id, stream, result.FileName, contentType);
+            var downloadUrl = await _api.UploadFileAsync(_auth.Token!, SelectedChannel.Id, SelectedChannel.Type, stream, result.FileName, contentType);
             AddUploadedMessage(MessageType.Image, result.FileName, downloadUrl, fileSize);
             StatusText = "已上传";
         }

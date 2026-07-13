@@ -26,6 +26,71 @@ public interface IApiService
     /// <summary>Authenticate and obtain a session token.</summary>
     Task<LoginResult> LoginAsync(string username, string password, CancellationToken ct = default);
 
+    /// <summary>
+    /// Email + password login (<c>POST /v1/user/emaillogin</c>). Mirrors
+    /// <c>requestEmailLogin</c> in <c>login_vm.tsx</c>. MAUI sends
+    /// <c>flag=2</c> (PC client).
+    /// </summary>
+    Task<LoginResult> EmailLoginAsync(string email, string password, CancellationToken ct = default);
+
+    /// <summary>
+    /// Username + password registration (<c>POST /v1/user/usernameregister</c>).
+    /// Mirrors <c>requestRegister</c> in <c>login_vm.tsx</c>. On success the
+    /// server returns a <see cref="LoginResult"/> (auto-login after register).
+    /// </summary>
+    Task<LoginResult> RegisterAsync(string username, string name, string password, CancellationToken ct = default);
+
+    /// <summary>
+    /// Send an email verification code (<c>POST /v1/user/email/sendcode</c>).
+    /// Mirrors <c>requestEmailSendCode</c> in <c>login_vm.tsx</c>. The
+    /// <paramref name="codeType"/> selects the purpose: <c>0</c> = register,
+    /// <c>1</c> = forget password.
+    /// </summary>
+    Task SendEmailCodeAsync(string email, int codeType, CancellationToken ct = default);
+
+    /// <summary>
+    /// Email registration with verification code
+    /// (<c>POST /v1/user/emailregister</c>). Mirrors
+    /// <c>requestEmailRegister</c> in <c>login_vm.tsx</c>. On success the
+    /// server returns a <see cref="LoginResult"/> (auto-login after register).
+    /// </summary>
+    Task<LoginResult> EmailRegisterAsync(string email, string password, string name, string code, CancellationToken ct = default);
+
+    /// <summary>
+    /// Reset password via email verification code
+    /// (<c>POST /v1/user/email/forgetpwd</c>). Mirrors
+    /// <c>requestForgetPassword</c> in <c>login_vm.tsx</c>. No structured
+    /// response body — success is indicated by a 2xx status code.
+    /// </summary>
+    Task ForgetPasswordAsync(string email, string code, string newPassword, CancellationToken ct = default);
+
+    // --- QR code login (state machine driven, see login_vm.tsx advance) ---
+
+    /// <summary>
+    /// Request a QR code login session (<c>GET /v1/user/loginuuid</c>).
+    /// Mirrors <c>requestUUID</c> in <c>login_vm.tsx</c>. The device info is
+    /// sent as query parameters (matching the web client's
+    /// <c>{ param: device }</c> form).
+    /// </summary>
+    Task<QrCodeInfo> GetQrCodeAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Poll the QR login status (<c>GET /v1/user/loginstatus?uuid=...</c>).
+    /// Mirrors <c>pullLoginStatus</c> in <c>login_vm.tsx</c>. The returned
+    /// <see cref="QrLoginStatus.Status"/> drives the state machine:
+    /// <c>waitScan</c> → <c>scanned</c> → <c>authed</c> (or <c>expired</c>).
+    /// </summary>
+    Task<QrLoginStatus> PollQrLoginStatusAsync(string uuid, CancellationToken ct = default);
+
+    /// <summary>
+    /// Exchange a QR-login auth code for a session
+    /// (<c>POST /v1/user/login_authcode/{authCode}</c>). Mirrors
+    /// <c>requestLogin</c> in <c>login_vm.tsx</c>. Called once the QR status
+    /// reaches <c>authed</c> and <see cref="QrLoginStatus.AuthCode"/> is
+    /// populated.
+    /// </summary>
+    Task<LoginResult> LoginWithAuthCodeAsync(string authCode, CancellationToken ct = default);
+
     /// <summary>Fetch the authenticated user's profile.</summary>
     Task<User> GetCurrentUserAsync(string token, CancellationToken ct = default);
 

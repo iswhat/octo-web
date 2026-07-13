@@ -180,17 +180,40 @@ public sealed class ServerConfigService : IServerConfigService
     {
         var info = new ServerInfo();
         if (root.ValueKind != JsonValueKind.Object) return info;
+
+        // legacy_password_login_off: when true, the server has disabled
+        // username/password login (mirrors ApiService.GetServerInfoAsync).
+        if (root.TryGetProperty("legacy_password_login_off", out var lplo) && lplo.ValueKind == JsonValueKind.True)
+        {
+            info.LegacyPasswordLoginOff = true;
+        }
+
         if (root.TryGetProperty("oidc_providers", out var arr) && arr.ValueKind == JsonValueKind.Array)
         {
             foreach (var item in arr.EnumerateArray())
             {
+                // id and name must be non-empty strings — skip otherwise.
+                var id = item.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
+                    ? idEl.GetString() ?? "" : "";
+                var name = item.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
+                    ? nameEl.GetString() ?? "" : "";
+                if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(name)) continue;
+
+                // authorize_path must be a safe in-site relative path (starts
+                // with /, not //) — mirrors IsSafeAuthorizePath in ApiService.
+                var authorizePath = item.TryGetProperty("authorize_path", out var apEl) && apEl.ValueKind == JsonValueKind.String
+                    ? apEl.GetString() ?? "" : "";
+                if (!ApiService.IsSafeAuthorizePath(authorizePath)) continue;
+
                 info.OidcProviders.Add(new OidcProvider
                 {
-                    Id = item.TryGetProperty("id", out var id) ? id.GetString() ?? "" : "",
-                    Name = item.TryGetProperty("name", out var name) ? name.GetString() ?? "" : "",
-                    AuthorizePath = item.TryGetProperty("authorize_path", out var ap) ? ap.GetString() ?? "" : "",
-                    AccountUrl = item.TryGetProperty("account_url", out var au) && au.ValueKind == JsonValueKind.String ? au.GetString() : null,
-                    ResetPasswordUrl = item.TryGetProperty("reset_password_url", out var rp) && rp.ValueKind == JsonValueKind.String ? rp.GetString() : null,
+                    Id = id,
+                    Name = name,
+                    AuthorizePath = authorizePath,
+                    // account_url / reset_password_url must be http/https —
+                    // mirrors SanitizeHttpUrl in ApiService.
+                    AccountUrl = ApiService.SanitizeHttpUrl(item, "account_url"),
+                    ResetPasswordUrl = ApiService.SanitizeHttpUrl(item, "reset_password_url"),
                 });
             }
         }
