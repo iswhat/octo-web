@@ -97,14 +97,20 @@ AI Agent 的回复以 Markdown 格式呈现，由原生 `MarkdownView` 控件渲
 ### 拖拽上传
 
 - 聊天区域支持拖拽文件 / 图片直接上传（`DropGestureRecognizer`）
+- 使用 MAUI 原生 `DropEventArgs.Data` API（`e.Data.GetTextAsync()`），跨平台兼容
+- macOS 拖拽的 `file://` URI 自动转换为本地路径
 - 拖拽悬停时显示视觉反馈（`IsDragOver` 状态）
-- 支持多文件批量上传，单个文件失败不影响其余（`continue` 而非 `return`）
+- 支持多文件批量上传，`IsUploading` 在整个批次期间保持 true（不闪烁）
+- 单个文件失败不影响其余（continue 而非 return）
 
 ### 流式回复渲染
 
 AI Agent 的回复以流式方式实时呈现：
 
 - WebSocket 接收 `stream_start` / `stream_chunk` / `stream_end` 三阶段事件
+- 跨帧消息使用 `MemoryStream` 累积原始字节，`EndOfMessage` 后一次性 UTF-8 解码，
+  避免多字节字符（CJK / emoji）在 64KB 帧边界处乱码
+- 切换频道时清理 `_streamingMessages`，防止跨频道的流式占位符残留
 - 流式过程中显示"🦞 Lobster 正在思考…"指示器和 spinner
 - 消息内容增量追加，流式中显示"● 输入中…"标记
 - 流式完成后标记转为正常消息
@@ -194,8 +200,11 @@ apps/octo-maui/
 - **Services** 通过 `MauiProgram` 依赖注入容器注册，在构造函数中注入
 - **Models** 对应 `octo-server` 的 REST 数据结构
 - **三层路由**：未配置服务端 → 服务端配置页；已配置未登录 → 登录页；已登录 → 聊天页
-- **资源释放**：`ChatViewModel` 和 `WindowsTrayService` 实现 `IDisposable`，
-  页面离开时取消订阅 WebSocket 事件，防止 Transient ViewModel + Singleton Service 内存泄漏
+- **资源释放**：`ChatViewModel`、`LoginViewModel`、`ServerConfigViewModel` 和
+  `WindowsTrayService` 实现 `IDisposable`。`LoginPage` / `ServerConfigPage` 在
+  `OnNavigatedFrom` 中调用 `Dispose()` 取消订阅单例事件，防止 Transient ViewModel
+  内存泄漏。`ChatPage` 不在导航时释放（WebSocket 推送只在构造函数订阅一次，
+  导航释放会导致永久失聪），清理通过 `LogoutAsync` / `SwitchServerAsync` 完成
 
 ### 关键设计：ProbeAsync（探测不保存）
 
@@ -215,16 +224,19 @@ apps/octo-maui/
 | 端点 | 方法 | 用途 |
 |---|---|---|
 | `/` | GET | Ping 连通性检查（任意 HTTP 响应即可） |
-| `/user/login` | POST | 本地用户名密码登录 |
-| `/user/current` | GET | 获取当前用户信息（需 token） |
-| `/channel/list` | GET | 获取频道列表 |
-| `/channel/{id}/messages` | GET | 获取频道消息历史 |
-| `/channel/{id}/message/send` | POST | 发送消息 |
-| `/channel/{id}/message/upload` | POST | 上传文件 / 图片（multipart/form-data） |
+| `/api/v1/user/login` | POST | 本地用户名密码登录 |
+| `/api/v1/user/current` | GET | 获取当前用户信息（需 token） |
+| `/api/v1/channel/list` | GET | 获取频道列表 |
+| `/api/v1/channel/{id}/messages` | GET | 获取频道消息历史 |
+| `/api/v1/channel/{id}/message/send` | POST | 发送消息 |
+| `/api/v1/channel/{id}/message/upload` | POST | 上传文件 / 图片（multipart/form-data） |
 | `/v1/common/appconfig` | GET | 获取服务端配置（含 OIDC 提供商） |
 | `/v1/common/version` | GET | 获取最新客户端版本（用于自动更新检查） |
 | `/v1/user/thirdlogin/authcode` | GET | 获取 OIDC 一次性授权码 |
 | `/v1/user/thirdlogin/authstatus` | GET | 轮询 OIDC 登录状态 |
+
+> 认证 header 为 `token: <value>`（非 `Bearer`），与 web 客户端一致。
+> REST 端点使用 `/api/v1` 前缀，OIDC 端点使用 `/v1/` 前缀。
 
 ## 开发状态
 
@@ -265,8 +277,45 @@ apps/octo-maui/
 
 **安全**：
 - Token 从 `Preferences` 迁移到 `SecureStorage`（DPAPI / Keychain / KeyStore）
-- WebSocket 移除 URL query string 中的 token，仅用 Authorization header
+- WebSocket 移除 URL query string 中的 token，仅用 `token` header
 - `NormalizeUrl` 拒绝非 localhost 的 cleartext HTTP
+
+### 质量改进（第三~五轮 PR 审阅修复）
+
+基于 PR #578 三位 reviewer（yujiawei、Jerry-Xin、OctoBoooot）的多轮审查反馈，
+共修复 29 个问题：
+
+**第三轮**（commit `55f2d032`，9 个）：
+- REST 端点统一加 `/api/v1` 前缀，认证 header 改为 `token: <value>`（非 `Bearer`）
+- WebSocket token 从 URL query 移至 `token` header
+- OIDC JSON 字段改为 snake_case（`authorize_path` / `account_url` / `reset_password_url`）
+- `AllowInsecureSsl` 证书绕过限制为 loopback（`IPAddress.IsLoopback`）
+- `WebSocketUrl` 用 `UriBuilder` 构建（不再 `.Replace` 链式调用）
+- 图片 URL 安全校验（`SafeImageUrl`，仅允许 http/https scheme）
+
+**第四轮**（commit `06c99f43`，12 个）：
+- `ViewModelBase` 新增 `IsBusy` 属性（CS0103 编译错误）
+- `CreateCommand<T>` canExecute arity 修正（`() => !IsBusy` → `_ => !IsBusy`）
+- `ChatPage.OnDrop` 移除 WinUI `StandardDataFormats` 引用
+- `App.xaml.cs` CreateWindow 改用 `activationState.Context.Services`（Handler 为 null）
+- `ChatViewModel.SendAsync` 发送失败恢复草稿
+- `ChatViewModel.InitializeAsync` 检查 `HydrateCurrentUserAsync` 返回值
+- `ServerConfigViewModel.ContinueAsync` 添加 `finally { IsBusy = false }`
+- `WebSocketService` 消息大小上限 1MB（防止内存耗尽）
+- `UpdateService` 静态复用 `HttpClient`（防止 socket 耗尽）
+- `ChatPage.OnMessagesChanged` 延迟 lambda 内重检 count
+- 窗口位置 clamp 到显示器边界
+- macOS `file://` URI 转换为本地路径
+
+**第五轮**（commit `cba886b3`，8 个）：
+- `ChatPage.OnDrop` 修正 `e.DataPackage.View` → `e.Data`（MAUI 原生 API，最后一个编译阻断）
+- `WebSocketService` 跨帧 UTF-8 解码改用 `MemoryStream` 累积（防止 CJK/emoji 乱码）
+- `ChatViewModel` 切换频道时清理 `_streamingMessages`
+- `LoginViewModel` / `ServerConfigViewModel` 实现 `IDisposable` + 页面 `OnNavigatedFrom` 释放
+- `ChatPage.OnNavigatedFrom` 移除 `Dispose()`（防止 WebSocket 推送永久失聪）
+- `ApiService.BuildAuthorizeUrl` 用 `Uri.TryCreate` + scheme 校验（防止 `httpevil://`）
+- `ChatViewModel.HandleDropAsync` `IsUploading` 改为包裹整个批次
+- `AndroidManifest.xml` `allowBackup="false"`（防止 `adb backup` 提取 token）
 
 待优化：
 （暂无 — 所有已知待优化项均已完成）
