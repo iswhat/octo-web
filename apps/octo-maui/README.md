@@ -450,9 +450,31 @@ PR blocker 修复（3 个）：
   轮询 `GET /v1/user/loginstatus?uuid=...`（状态机：waitScan→scanned→authed/expired）→
   `POST /v1/user/login_authcode/{authCode}` 换取 token
 
-涉及文件：`ApiService.cs`、`IApiService.cs`、`AuthService.cs`、`IAuthService.cs`、
-`LoginViewModel.cs`、`ChatViewModel.cs`、`ServerConfigService.cs`、
-`Models/QrCodeModels.cs`（新建）、`README.md`
+**第九轮**（代码质量优化，11 个问题）：
+
+基于深度审阅发现的质量问题，进一步优化代码结构和健壮性：
+
+**代码复用**：
+- **P1-2 IsLoopback 提取**：`ApiService`、`ServerConfigService`、`WebSocketService` 中重复的 `IsLoopback` 方法提取到 `HttpUtils.cs` 静态类
+- **P1-3 HttpClient 创建提取**：三个服务中重复的 `HttpClient` 创建逻辑（含 TLS 安全配置）提取到 `HttpUtils.CreateHttpClient()`
+
+**异常处理**：
+- **P0-1 LogoutAsync await**：`AuthService.LogoutAsync` 中 `SecureStorage.Remove` 改为 `await RemoveAsync`，确保 token 清理完成
+- **P1-1 UpdateBaseUrl try-catch**：`ApiService.UpdateBaseUrl` 延迟释放 oldClient 添加 try-catch，防止 dispose 异常
+- **P1-4 CheckForUpdatesAsync try-catch**：`App.xaml.cs` 中版本检查调用添加 try-catch
+- **P2-4 Preferences.Set try-catch**：`ServerConfigService.SetServerUrlAsync` 中 `Preferences.Set` 添加 try-catch
+
+**资源管理**：
+- **P0-2 CTS Dispose**：`ChatViewModel._loadMessagesCts` 切换频道时先 Cancel 再 Dispose
+- **P2-1 GetDevice 缓存**：`ApiService.GetDevice()` 使用 `Lazy<>` 缓存设备信息，避免重复创建
+
+**代码健壮性**：
+- **P1-5 SendAsync 真实用户 ID**：`ChatViewModel.SendAsync` 中 `FromUid`/`SenderName` 使用真实用户数据而非硬编码 `"me"`/`"我"`
+- **P2-2 ViewModelBase nullable 注解**：`ViewModelBase.Get<T>` 方法添加返回值说明
+- **P2-5 AddUploadedMessage 空值检查**：添加 `SelectedChannel` 空值检查
+
+涉及文件：`ApiService.cs`、`HttpUtils.cs`（新建）、`ServerConfigService.cs`、`WebSocketService.cs`、
+`AuthService.cs`、`ChatViewModel.cs`、`App.xaml.cs`、`ViewModelBase.cs`
 
 ## 许可
 

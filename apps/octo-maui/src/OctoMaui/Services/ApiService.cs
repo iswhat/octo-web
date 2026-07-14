@@ -37,7 +37,11 @@ public sealed class ApiService : IApiService
         var oldClient = Interlocked.Exchange(ref _http, CreateClient(normalized, _options.Timeout));
         // Old instance is disposed after a delay to avoid ObjectDisposedException
         // for in-flight requests that still hold a reference to it.
-        _ = Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(_ => oldClient?.Dispose(), TaskScheduler.Default);
+        _ = Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(t =>
+        {
+            try { oldClient?.Dispose(); }
+            catch { /* ignore dispose errors */ }
+        }, TaskScheduler.Default);
     }
 
     /// <inheritdoc />
@@ -434,19 +438,7 @@ public sealed class ApiService : IApiService
 
     private HttpClient CreateClient(string baseUrl, TimeSpan timeout)
     {
-        var handler = new HttpClientHandler();
-        if (_options.AllowInsecureSsl)
-        {
-            // Only bypass TLS validation for loopback (local development).
-            // Remote hosts must always use valid certificates.
-            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
-            {
-                if (message.RequestUri is { } uri && IsLoopback(uri.Host))
-                    return true;  // Allow self-signed for localhost only
-                return false;  // Remote hosts must have valid certs
-            };
-        }
-        return new HttpClient(handler) { BaseAddress = new Uri(baseUrl), Timeout = timeout };
+        return HttpUtils.CreateHttpClient(baseUrl, timeout, _options.AllowInsecureSsl);
     }
 
     /// <summary>
@@ -486,13 +478,7 @@ public sealed class ApiService : IApiService
     /// <summary>True for localhost / 127.0.0.1 / ::1.</summary>
     private static bool IsLoopback(string host)
     {
-        if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
-            return true;
-        // IPAddress.IsLoopback handles both IPv4 (127.0.0.1) and IPv6 (::1)
-        // without requiring bracket-stripping.
-        if (IPAddress.TryParse(host, out var ip))
-            return IPAddress.IsLoopback(ip);
-        return false;
+        return HttpUtils.IsLoopback(host);
     }
 
     /// <summary>
@@ -503,14 +489,16 @@ public sealed class ApiService : IApiService
     /// payloads (snake_case keys) and URL-encoded into query strings for
     /// <c>GET /v1/user/loginuuid</c>.
     /// </summary>
+    private static readonly Lazy<Dictionary<string, string>> DeviceInfoCache = new(() => new Dictionary<string, string>
+    {
+        ["device_id"] = GetOrCreateDeviceId(),
+        ["device_name"] = DeviceInfo.Current.Name,
+        ["device_model"] = DeviceInfo.Current.Model,
+    });
+
     private static Dictionary<string, string> GetDevice()
     {
-        return new Dictionary<string, string>
-        {
-            ["device_id"] = GetOrCreateDeviceId(),
-            ["device_name"] = DeviceInfo.Current.Name,
-            ["device_model"] = DeviceInfo.Current.Model,
-        };
+        return DeviceInfoCache.Value;
     }
 
     /// <summary>

@@ -161,7 +161,8 @@ public partial class App : Application
                         }
                     }
                 });
-            _ = update.CheckForUpdatesAsync();
+            try { _ = update.CheckForUpdatesAsync(); }
+            catch { /* ignore update check errors */ }
         }
     }
 

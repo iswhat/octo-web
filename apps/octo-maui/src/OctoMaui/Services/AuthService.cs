@@ -251,14 +251,13 @@ public sealed class AuthService : IAuthService
         }
     }
 
-    public Task LogoutAsync()
+    public async Task LogoutAsync()
     {
         _token = null;
         _user = null;
-        SecureStorage.Default.Remove(TokenKey);
+        await SecureStorage.Default.RemoveAsync(TokenKey);
         ClearUserPrefs();
         RaiseChanged();
-        return Task.CompletedTask;
     }
 
     /// <summary>

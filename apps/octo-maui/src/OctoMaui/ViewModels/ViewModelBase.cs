@@ -16,7 +16,8 @@ public abstract class ViewModelBase : INotifyPropertyChanged
 
     private readonly ConcurrentDictionary<string, object?> _values = new();
 
-    /// <summary>Strongly-typed property storage with change notification.</summary>
+    /// <summary>Strongly-typed property storage with change notification.
+    /// Returns default(T) if the property hasn't been set yet.</summary>
     protected T Get<T>([CallerMemberName] string? name = null)
         => _values.TryGetValue(name!, out var v) ? (T)v! : default!;
 

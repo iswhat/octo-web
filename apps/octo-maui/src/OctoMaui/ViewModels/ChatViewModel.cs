@@ -68,6 +68,7 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
             {
                 // Cancel any in-flight message load before starting a new one.
                 _loadMessagesCts?.Cancel();
+                _loadMessagesCts?.Dispose();
                 _loadMessagesCts = new CancellationTokenSource();
                 _ = LoadMessagesAsync(_loadMessagesCts.Token);
             }
@@ -213,8 +214,8 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
             {
                 Id = "local-" + Guid.NewGuid().ToString("N"),
                 ChannelId = SelectedChannel.Id,
-                FromUid = _auth.CurrentUser?.Id ?? "me",
-                SenderName = _auth.CurrentUser?.DisplayName ?? "我",
+                FromUid = _auth.CurrentUser?.Id ?? string.Empty,
+                SenderName = _auth.CurrentUser?.DisplayName ?? string.Empty,
                 Content = content,
                 TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             });
@@ -415,13 +416,13 @@ public sealed class ChatViewModel : ViewModelBase, IDisposable
     /// </summary>
     private void AddUploadedMessage(MessageType type, string fileName, string downloadUrl, long fileSize)
     {
-        if (string.IsNullOrEmpty(downloadUrl)) return;
+        if (SelectedChannel is null || string.IsNullOrEmpty(downloadUrl)) return;
         Messages.Add(new Message
         {
             Id = "local-" + Guid.NewGuid().ToString("N"),
-            ChannelId = SelectedChannel?.Id ?? "",
-            FromUid = _auth.CurrentUser?.Id ?? "me",
-            SenderName = _auth.CurrentUser?.DisplayName ?? "我",
+            ChannelId = SelectedChannel.Id,
+            FromUid = _auth.CurrentUser?.Id ?? string.Empty,
+            SenderName = _auth.CurrentUser?.DisplayName ?? string.Empty,
             Type = type,
             Content = "",
             Url = downloadUrl,

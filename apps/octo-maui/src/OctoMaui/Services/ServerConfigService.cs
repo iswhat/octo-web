@@ -83,7 +83,8 @@ public sealed class ServerConfigService : IServerConfigService
         ServerUrl = normalized;
         _options.BaseUrl = normalized;
         _api.UpdateBaseUrl(normalized);
-        Preferences.Default.Set(PrefKey, normalized);
+        try { Preferences.Default.Set(PrefKey, normalized); }
+        catch { /* ignore preference save errors */ }
 
         RaiseChanged();
 
@@ -148,26 +149,7 @@ public sealed class ServerConfigService : IServerConfigService
     /// </summary>
     private HttpClient CreateProbeClient(string baseUrl, TimeSpan timeout)
     {
-        var handler = new HttpClientHandler();
-        if (_options.AllowInsecureSsl)
-        {
-            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
-            {
-                if (message.RequestUri is { } uri && IsLoopback(uri.Host))
-                    return true;  // Allow self-signed for localhost only
-                return false;  // Remote hosts must have valid certs
-            };
-        }
-        return new HttpClient(handler) { BaseAddress = new Uri(baseUrl), Timeout = timeout };
-    }
-
-    private static bool IsLoopback(string host)
-    {
-        if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
-            return true;
-        if (IPAddress.TryParse(host, out var ip))
-            return IPAddress.IsLoopback(ip);
-        return false;
+        return HttpUtils.CreateHttpClient(baseUrl, timeout, _options.AllowInsecureSsl);
     }
 
     /// <summary>

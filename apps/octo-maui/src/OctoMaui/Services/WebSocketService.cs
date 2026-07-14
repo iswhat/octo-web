@@ -135,32 +135,7 @@ public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
 
     private HttpClient CreateHttpClient()
     {
-        var handler = new HttpClientHandler();
-        if (_options.AllowInsecureSsl)
-        {
-            // Mirror ApiService: only bypass TLS validation for loopback so
-            // remote hosts must still present valid certificates.
-            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
-            {
-                if (message.RequestUri is { } uri && IsLoopback(uri.Host))
-                    return true;
-                return false;
-            };
-        }
-        return new HttpClient(handler)
-        {
-            BaseAddress = new Uri(_options.BaseUrl),
-            Timeout = _options.Timeout,
-        };
-    }
-
-    private static bool IsLoopback(string host)
-    {
-        if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
-            return true;
-        if (IPAddress.TryParse(host, out var ip))
-            return IPAddress.IsLoopback(ip);
-        return false;
+        return HttpUtils.CreateHttpClient(_options.BaseUrl, _options.Timeout, _options.AllowInsecureSsl);
     }
 
     public async Task DisconnectAsync()
