@@ -204,9 +204,9 @@ public sealed class ApiService : IApiService
     /// <inheritdoc />
     public async Task<LoginResult> LoginWithAuthCodeAsync(string authCode, CancellationToken ct = default)
     {
-        // Mirrors login_vm.tsx requestLogin: POST user/login_authcode/${authCode}.
-        // No JSON body — the authCode is in the path.
-        using var resp = await _http.PostAsync($"/v1/user/login_authcode/{Uri.EscapeDataString(authCode)}", content: null, ct);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/v1/user/login_authcode");
+        req.Content = JsonContent.Create(new { auth_code = authCode });
+        using var resp = await _http.SendAsync(req, ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
                    ?? throw new InvalidOperationException("Empty authcode login response.");
@@ -552,7 +552,7 @@ public sealed class ApiService : IApiService
     /// is used to build a URL opened in the browser, so only in-site paths
     /// are allowed to prevent javascript:/data:/protocol-relative redirects.
     /// </summary>
-    private static bool IsSafeAuthorizePath(string? value)
+    internal static bool IsSafeAuthorizePath(string? value)
     {
         return !string.IsNullOrEmpty(value)
                && value.Length >= 2

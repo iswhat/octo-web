@@ -286,6 +286,7 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
             if (ok)
             {
                 _emailCodeCountdownCts?.Cancel();
+                _emailCodeCountdownCts?.Dispose();
                 _emailCodeCountdownCts = new CancellationTokenSource();
                 await StartCountdownAsync(
                     v => EmailCodeCountdown = v,
@@ -324,6 +325,7 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
             if (ok)
             {
                 _forgetCodeCountdownCts?.Cancel();
+                _forgetCodeCountdownCts?.Dispose();
                 _forgetCodeCountdownCts = new CancellationTokenSource();
                 await StartCountdownAsync(
                     v => ForgetCodeCountdown = v,
@@ -471,6 +473,7 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
         try
         {
             _qrPollCts?.Cancel();
+            _qrPollCts?.Dispose();
             _qrPollCts = new CancellationTokenSource();
             var info = await _api.GetQrCodeAsync(_qrPollCts.Token);
             QrCode = info.QrCode;
@@ -503,8 +506,15 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
     private async Task PollQrLoginAsync(string uuid, CancellationToken ct)
     {
         var errCount = 0;
+        var startTime = DateTime.UtcNow;
         while (!ct.IsCancellationRequested)
         {
+            if (DateTime.UtcNow - startTime > QrPollMaxDuration)
+            {
+                QrLoginStatusText = "二维码已过期，请刷新";
+                return;
+            }
+
             try
             {
                 await Task.Delay(2000, ct);
@@ -548,6 +558,9 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
 
     /// <summary>Max consecutive poll errors before bailing (mirrors _pullMaxErrCount).</summary>
     private const int QrPollMaxErrors = 5;
+
+    /// <summary>Max polling duration before client-side expiry (5 minutes, mirrors server expiry).</summary>
+    private static readonly TimeSpan QrPollMaxDuration = TimeSpan.FromMinutes(5);
 
     private async Task LoginWithOidcAsync(OidcProvider provider)
     {

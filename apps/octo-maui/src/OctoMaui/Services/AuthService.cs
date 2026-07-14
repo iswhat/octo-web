@@ -66,7 +66,7 @@ public sealed class AuthService : IAuthService
         try
         {
             var result = await _api.LoginAsync(username, password, ct);
-            PersistSession(result);
+            await PersistSession(result);
             return true;
         }
         catch (OperationCanceledException)
@@ -85,7 +85,7 @@ public sealed class AuthService : IAuthService
         try
         {
             var result = await _api.EmailLoginAsync(email, password, ct);
-            PersistSession(result);
+            await PersistSession(result);
             return true;
         }
         catch (OperationCanceledException)
@@ -104,7 +104,7 @@ public sealed class AuthService : IAuthService
         try
         {
             var result = await _api.RegisterAsync(username, name, password, ct);
-            PersistSession(result);
+            await PersistSession(result);
             return true;
         }
         catch (OperationCanceledException)
@@ -141,7 +141,7 @@ public sealed class AuthService : IAuthService
         try
         {
             var result = await _api.EmailRegisterAsync(email, password, name, code, ct);
-            PersistSession(result);
+            await PersistSession(result);
             return true;
         }
         catch (OperationCanceledException)
@@ -178,7 +178,7 @@ public sealed class AuthService : IAuthService
         try
         {
             var result = await _api.LoginWithAuthCodeAsync(authCode, ct);
-            PersistSession(result);
+            await PersistSession(result);
             return true;
         }
         catch (OperationCanceledException)
