@@ -476,6 +476,38 @@ PR blocker 修复（3 个）：
 涉及文件：`ApiService.cs`、`HttpUtils.cs`（新建）、`ServerConfigService.cs`、`WebSocketService.cs`、
 `AuthService.cs`、`ChatViewModel.cs`、`App.xaml.cs`、`ViewModelBase.cs`
 
+**第十二轮**（硬编码清理）：
+
+移除代码中所有硬编码的字符串和魔法数字，统一到常量类管理：
+
+**新建常量类**：
+- **ApiConstants.cs**：包含三个静态类
+  - `ApiPaths`：所有 REST 端点路径（`/v1/user/login`、`/v1/common/appconfig` 等）
+  - `ApiDefaults`：默认 BaseUrl 和设备类型常量（0=app, 1=web, 2=pc）
+  - `PreferencesKeys`：所有 Preferences/SecureStorage 键名
+- **MarkdownColors.cs**：MarkdownView 的亮色/暗色主题颜色方案
+
+**更新文件**（替换硬编码）：
+- `ApiService.cs`：所有 `/v1/*` 路径 → `ApiPaths.Xxx`，`flag=2` → `ApiDefaults.DeviceFlagPc`
+- `WebSocketService.cs`：`/v1/users/{uid}/im` → `ApiPaths.UsersIm`
+- `ServerConfigService.cs`：`/v1/common/appconfig` → `ApiPaths.CommonAppconfig`，偏好键名 → `PreferencesKeys.ServerUrl`
+- `UpdateService.cs`：`/version.json` → `ApiPaths.VersionJson`
+- `ApiOptions.cs`：默认 BaseUrl → `ApiDefaults.BaseUrl`
+- `MauiProgram.cs`：fallback BaseUrl → `ApiDefaults.BaseUrl`
+- `App.xaml.cs`：窗口持久化键 → `PreferencesKeys.WinX/Y/W/H`
+- `AuthService.cs`：所有 Preferences 键 → `PreferencesKeys.Token/AuthUid/AuthName/AuthSex/AuthShortNo`
+- `MarkdownView.cs`：所有 `Color.FromArgb("#XXXXXX")` → `MarkdownColors.Light/Dark.Xxx`
+
+**收益**：
+- API 契约和配置键的单一数据源
+- 类型安全重构 — 一处修改，全局更新
+- 常量上的文档注释说明含义
+- 消除重复硬编码字符串导致的复制粘贴错误
+
+涉及文件：`ApiConstants.cs`（新建）、`MarkdownColors.cs`（新建）、`ApiService.cs`、`WebSocketService.cs`、
+`ServerConfigService.cs`、`UpdateService.cs`、`ApiOptions.cs`、`MauiProgram.cs`、`App.xaml.cs`、
+`AuthService.cs`、`MarkdownView.cs`
+
 ## 许可
 
 Apache License 2.0 — 与父仓库 `octo-web` 相同。
