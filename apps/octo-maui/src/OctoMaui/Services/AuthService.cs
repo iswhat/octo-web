@@ -11,14 +11,14 @@ namespace OctoMaui.Services;
 /// </summary>
 public sealed class AuthService : IAuthService
 {
-    private const string TokenKey = "octo.auth.token";
+    private const string TokenKey = PreferencesKeys.Token;
     // Non-sensitive user profile fields persisted to Preferences (mirrors
     // the web client's LoginInfo.save() which stores uid/name/sex etc. in
     // localStorage). The token goes to SecureStorage separately.
-    private const string PrefUid = "octo.auth.uid";
-    private const string PrefName = "octo.auth.name";
-    private const string PrefSex = "octo.auth.sex";
-    private const string PrefShortNo = "octo.auth.short_no";
+    private const string PrefUid = PreferencesKeys.AuthUid;
+    private const string PrefName = PreferencesKeys.AuthName;
+    private const string PrefSex = PreferencesKeys.AuthSex;
+    private const string PrefShortNo = PreferencesKeys.AuthShortNo;
     private readonly IApiService _api;
 
     /// <summary>Poll interval for OIDC authstatus.</summary>

@@ -13,10 +13,10 @@ public partial class App : Application
     private const double MinHeight = 560;
 
     // Persistence keys for window bounds (screen-space pixel coordinates).
-    private const string PrefX = "win.x";
-    private const string PrefY = "win.y";
-    private const string PrefW = "win.w";
-    private const string PrefH = "win.h";
+    private const string PrefX = PreferencesKeys.WinX;
+    private const string PrefY = PreferencesKeys.WinY;
+    private const string PrefW = PreferencesKeys.WinW;
+    private const string PrefH = PreferencesKeys.WinH;
 
     /// <summary>Debounce token for SaveBounds — a drag-resize fires SizeChanged many times per second.</summary>
     private CancellationTokenSource? _saveBoundsCts;

@@ -112,7 +112,7 @@ public sealed class WebSocketService : IWebSocketService, IAsyncDisposable
             throw new ArgumentException("token cannot be empty.", nameof(token));
 
         using var http = CreateHttpClient();
-        using var req = new HttpRequestMessage(HttpMethod.Get, $"/v1/users/{Uri.EscapeDataString(uid)}/im");
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"{ApiPaths.UsersIm}/{Uri.EscapeDataString(uid)}/im");
         req.Headers.Add("token", token);
         using var resp = await http.SendAsync(req, ct);
         resp.EnsureSuccessStatusCode();

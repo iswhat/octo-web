@@ -35,8 +35,8 @@ public sealed class UpdateService : IUpdateService
         {
             // Reuse a long-lived static HttpClient to avoid socket exhaustion.
             // Build absolute URL to avoid mutating BaseAddress (can only be set before first request).
-            var url = new Uri(new Uri(_api.BaseUrl), $"/version.json?_={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
-            // /version.json is a static file (not an API endpoint). The
+            var url = new Uri(new Uri(_api.BaseUrl), $"{ApiPaths.VersionJson}?_={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
+            // version.json is a static file (not an API endpoint). The
             // cache-busting query param mirrors versionChecker.ts
             // (`'/version.json?_=' + Date.now()` with `cache: 'no-store'`).
             using var resp = await _http.GetAsync(url, ct);

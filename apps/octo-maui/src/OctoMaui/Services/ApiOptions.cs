@@ -6,7 +6,7 @@ namespace OctoMaui.Services;
 public sealed class ApiOptions
 {
     /// <summary>Base URL of the octo-server REST API, e.g. http://localhost:8080.</summary>
-    public string BaseUrl { get; set; } = "http://localhost:8080";
+    public string BaseUrl { get; set; } = ApiDefaults.BaseUrl;
 
     /// <summary>
     /// WebSocket URL derived from BaseUrl (http→ws / https→wss).

@@ -56,7 +56,7 @@ public sealed class ApiService : IApiService
             // any HTTP listener that would 200 on "/"). This unifies the
             // reachability and capability checks — GetServerInfoAsync hits the
             // same endpoint for the full OIDC config.
-            using var resp = await probe.GetAsync("/v1/common/appconfig", ct);
+            using var resp = await probe.GetAsync(ApiPaths.CommonAppconfig, ct);
             return resp.IsSuccessStatusCode;
         }
         catch
@@ -74,10 +74,10 @@ public sealed class ApiService : IApiService
         {
             username,
             password,
-            flag = 2,
+            flag = ApiDefaults.DeviceFlagPc,
             device = GetDevice(),
         };
-        var resp = await _http.PostAsJsonAsync("/v1/user/login", payload, ct);
+        var resp = await _http.PostAsJsonAsync(ApiPaths.UserLogin, payload, ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
                    ?? throw new InvalidOperationException("Empty login response.");
@@ -94,10 +94,10 @@ public sealed class ApiService : IApiService
         {
             email,
             password,
-            flag = 2,
+            flag = ApiDefaults.DeviceFlagPc,
             device = GetDevice(),
         };
-        var resp = await _http.PostAsJsonAsync("/v1/user/emaillogin", payload, ct);
+        var resp = await _http.PostAsJsonAsync(ApiPaths.UserEmailLogin, payload, ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
                    ?? throw new InvalidOperationException("Empty email login response.");
@@ -114,10 +114,10 @@ public sealed class ApiService : IApiService
             username,
             name,
             password,
-            flag = 2,
+            flag = ApiDefaults.DeviceFlagPc,
             device = GetDevice(),
         };
-        var resp = await _http.PostAsJsonAsync("/v1/user/usernameregister", payload, ct);
+        var resp = await _http.PostAsJsonAsync(ApiPaths.UserUsernameRegister, payload, ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
                    ?? throw new InvalidOperationException("Empty register response.");
@@ -134,7 +134,7 @@ public sealed class ApiService : IApiService
             email,
             code_type = codeType,
         };
-        var resp = await _http.PostAsJsonAsync("/v1/user/email/sendcode", payload, ct);
+        var resp = await _http.PostAsJsonAsync(ApiPaths.UserEmailSendCode, payload, ct);
         resp.EnsureSuccessStatusCode();
         // No structured response body — success is indicated by 2xx status.
     }
@@ -150,10 +150,10 @@ public sealed class ApiService : IApiService
             password,
             name,
             code,
-            flag = 2,
+            flag = ApiDefaults.DeviceFlagPc,
             device = GetDevice(),
         };
-        var resp = await _http.PostAsJsonAsync("/v1/user/emailregister", payload, ct);
+        var resp = await _http.PostAsJsonAsync(ApiPaths.UserEmailRegister, payload, ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
                    ?? throw new InvalidOperationException("Empty email register response.");
@@ -171,7 +171,7 @@ public sealed class ApiService : IApiService
             code,
             new_password = newPassword,
         };
-        var resp = await _http.PostAsJsonAsync("/v1/user/email/forgetpwd", payload, ct);
+        var resp = await _http.PostAsJsonAsync(ApiPaths.UserEmailForgetPwd, payload, ct);
         resp.EnsureSuccessStatusCode();
         // No structured response body — success is indicated by 2xx status.
     }
@@ -186,7 +186,7 @@ public sealed class ApiService : IApiService
         // Mirrors login_vm.tsx requestUUID: GET user/loginuuid with the device
         // info sent as query params (web client uses { param: device }).
         var query = GetDeviceQuery();
-        using var resp = await _http.GetAsync($"/v1/user/loginuuid?{query}", ct);
+        using var resp = await _http.GetAsync($"{ApiPaths.UserLoginUuid}?{query}", ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<QrCodeInfo>(Json, ct)
                    ?? throw new InvalidOperationException("Empty loginuuid response.");
@@ -198,7 +198,7 @@ public sealed class ApiService : IApiService
     {
         // Mirrors login_vm.tsx pullLoginStatus:
         // GET user/loginstatus?uuid=${uuid}.
-        using var resp = await _http.GetAsync($"/v1/user/loginstatus?uuid={Uri.EscapeDataString(uuid)}", ct);
+        using var resp = await _http.GetAsync($"{ApiPaths.UserLoginStatus}?uuid={Uri.EscapeDataString(uuid)}", ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<QrLoginStatus>(Json, ct)
                    ?? new QrLoginStatus { Status = "expired" };
@@ -208,7 +208,7 @@ public sealed class ApiService : IApiService
     /// <inheritdoc />
     public async Task<LoginResult> LoginWithAuthCodeAsync(string authCode, CancellationToken ct = default)
     {
-        using var resp = await _http.PostAsync($"/v1/user/login_authcode/{Uri.EscapeDataString(authCode)}", content: null, ct);
+        using var resp = await _http.PostAsync($"{ApiPaths.UserLoginAuthcode}/{Uri.EscapeDataString(authCode)}", content: null, ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
                    ?? throw new InvalidOperationException("Empty authcode login response.");
@@ -226,7 +226,7 @@ public sealed class ApiService : IApiService
     /// </remarks>
     public async Task<User> GetCurrentUserAsync(string token, CancellationToken ct = default)
     {
-        using var req = Authed(token, HttpMethod.Get, "/v1/user/current");
+        using var req = Authed(token, HttpMethod.Get, ApiPaths.UserCurrent);
         return await SendAsync<User>(req, ct);
     }
 
@@ -287,7 +287,7 @@ public sealed class ApiService : IApiService
                   + $"&contentType={Uri.EscapeDataString(contentType)}"
                   + $"&fileSize={fileSize}";
 
-        using var credReq = Authed(token, HttpMethod.Get, $"/v1/file/upload/credentials?{query}");
+        using var credReq = Authed(token, HttpMethod.Get, $"{ApiPaths.FileUploadCredentials}?{query}");
         var cred = await SendAsync<UploadCredentials>(credReq, ct);
 
         // Step 2: PUT raw body to the presigned uploadUrl. No token header —
@@ -338,7 +338,7 @@ public sealed class ApiService : IApiService
     {
         try
         {
-            using var resp = await _http.GetAsync("/v1/common/appconfig", ct);
+            using var resp = await _http.GetAsync(ApiPaths.CommonAppconfig, ct);
             if (!resp.IsSuccessStatusCode) return new ServerInfo();
             using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), ct);
             var info = new ServerInfo();
@@ -392,7 +392,7 @@ public sealed class ApiService : IApiService
 
     public async Task<string> GetAuthCodeAsync(CancellationToken ct = default)
     {
-        using var resp = await _http.GetAsync("/v1/user/thirdlogin/authcode", ct);
+        using var resp = await _http.GetAsync(ApiPaths.UserThirdLoginAuthcode, ct);
         resp.EnsureSuccessStatusCode();
         using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), ct);
         return doc.RootElement.TryGetProperty("authcode", out var ac) ? ac.GetString() ?? "" : "";
@@ -400,7 +400,7 @@ public sealed class ApiService : IApiService
 
     public async Task<OidcAuthStatus> PollAuthStatusAsync(string authCode, CancellationToken ct = default)
     {
-        using var resp = await _http.GetAsync($"/v1/user/thirdlogin/authstatus?authcode={Uri.EscapeDataString(authCode)}", ct);
+        using var resp = await _http.GetAsync($"{ApiPaths.UserThirdLoginAuthstatus}?authcode={Uri.EscapeDataString(authCode)}", ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<OidcAuthStatus>(Json, ct)
                ?? new OidcAuthStatus { Status = 2, Msg = "Empty response" };

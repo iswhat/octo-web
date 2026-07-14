@@ -12,7 +12,7 @@ namespace OctoMaui.Services;
 /// </summary>
 public sealed class ServerConfigService : IServerConfigService
 {
-    private const string PrefKey = "server.url";
+    private const string PrefKey = PreferencesKeys.ServerUrl;
 
     private readonly ApiOptions _options;
     private readonly IApiService _api;
@@ -127,7 +127,7 @@ public sealed class ServerConfigService : IServerConfigService
         using var probe = CreateProbeClient(normalized, TimeSpan.FromSeconds(5));
         try
         {
-            using var resp = await probe.GetAsync("/v1/common/appconfig", ct);
+            using var resp = await probe.GetAsync(ApiPaths.CommonAppconfig, ct);
             if (!resp.IsSuccessStatusCode) return null;
             using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), ct);
             return ParseServerInfo(doc.RootElement);

@@ -165,8 +165,8 @@ public sealed class MarkdownView : VerticalStackLayout
             FontSize = fontSize,
             FontAttributes = FontAttributes.Bold,
             TextColor = Application.Current?.RequestedTheme == AppTheme.Dark
-                ? Color.FromArgb("#E0E0E0")
-                : Color.FromArgb("#1A1A1A"),
+                ? Color.FromArgb(MarkdownColors.Dark.Header)
+                : Color.FromArgb(MarkdownColors.Light.Header),
             Margin = new Thickness(0, 4, 0, 2),
         };
     }
@@ -178,8 +178,8 @@ public sealed class MarkdownView : VerticalStackLayout
             FormattedText = ParseInline(text),
             FontSize = 14,
             TextColor = Application.Current?.RequestedTheme == AppTheme.Dark
-                ? Color.FromArgb("#D0D0D0")
-                : Color.FromArgb("#333333"),
+                ? Color.FromArgb(MarkdownColors.Dark.Text)
+                : Color.FromArgb(MarkdownColors.Light.Text),
         };
     }
 
@@ -228,8 +228,8 @@ public sealed class MarkdownView : VerticalStackLayout
                 {
                     Text = text.Substring(pos, m.Index - pos),
                     TextColor = Application.Current?.RequestedTheme == AppTheme.Dark
-                        ? Color.FromArgb("#D0D0D0")
-                        : Color.FromArgb("#333333"),
+                        ? Color.FromArgb(MarkdownColors.Dark.Text)
+                        : Color.FromArgb(MarkdownColors.Light.Text),
                 });
             }
 
@@ -241,8 +241,8 @@ public sealed class MarkdownView : VerticalStackLayout
                     Text = token.Substring(2, token.Length - 4),
                     FontAttributes = FontAttributes.Bold,
                     TextColor = Application.Current?.RequestedTheme == AppTheme.Dark
-                        ? Color.FromArgb("#E0E0E0")
-                        : Color.FromArgb("#1A1A1A"),
+                        ? Color.FromArgb(MarkdownColors.Dark.Strong)
+                        : Color.FromArgb(MarkdownColors.Light.Strong),
                 });
             }
             else if (token.StartsWith("`"))
@@ -251,10 +251,10 @@ public sealed class MarkdownView : VerticalStackLayout
                 {
                     Text = token.Substring(1, token.Length - 2),
                     FontFamily = MonospaceFont,
-                    TextColor = Color.FromArgb("#E06C75"),
+                    TextColor = Color.FromArgb(MarkdownColors.Light.CodeText),
                     BackgroundColor = Application.Current?.RequestedTheme == AppTheme.Dark
-                        ? Color.FromArgb("#2D2D2D")
-                        : Color.FromArgb("#F0F0F0"),
+                        ? Color.FromArgb(MarkdownColors.Dark.CodeBackground)
+                        : Color.FromArgb(MarkdownColors.Light.CodeBackground),
                 });
             }
             pos = m.Index + m.Length;

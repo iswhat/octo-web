@@ -21,7 +21,7 @@ public static class MauiProgram
         // ServerConfigService.InitializeAsync on startup. The env var is kept
         // as a fallback for headless / CI scenarios.
         var apiBase = Environment.GetEnvironmentVariable("OCTO_API_BASE")
-                      ?? "https://localhost:8080";
+                      ?? ApiDefaults.BaseUrl;
 
         // Validate the env var: only allow https, or http to localhost (dev scenarios).
         // NormalizeUrl is an internal static helper on ApiService that enforces the
