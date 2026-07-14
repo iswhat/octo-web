@@ -33,8 +33,7 @@ public interface IUpdateService
 
 /// <summary>
 /// Version info returned by the server's <c>/version.json</c> static file.
-/// Only <c>version</c> and <c>force</c> are defined (matches
-/// packages/dmworkbase/src/Utils/versionChecker.ts).
+/// Matches packages/dmworkbase/src/Utils/versionChecker.ts.
 /// </summary>
 public sealed class VersionInfo
 {
@@ -44,4 +43,12 @@ public sealed class VersionInfo
     /// <summary>When true, the client should force a refresh (optional, defaults to false).</summary>
     [JsonPropertyName("force")]
     public bool Force { get; set; }
+
+    /// <summary>Download URL for the latest version (optional).</summary>
+    [JsonPropertyName("download_url")]
+    public string? DownloadUrl { get; set; }
+
+    /// <summary>Release notes / changelog URL for the latest version (optional).</summary>
+    [JsonPropertyName("release_notes_url")]
+    public string? ReleaseNotesUrl { get; set; }
 }

@@ -46,6 +46,8 @@ public sealed class UpdateService : IUpdateService
             if (info is null || string.IsNullOrWhiteSpace(info.Version)) return;
 
             LatestVersion = info.Version;
+            DownloadUrl = info.DownloadUrl;
+            ReleaseNotesUrl = info.ReleaseNotesUrl;
 
             // Simple semver comparison: parse "1.2.3" into (1, 2, 3).
             UpdateAvailable = IsNewer(info.Version, CurrentVersion);
