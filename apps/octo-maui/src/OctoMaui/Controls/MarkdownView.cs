@@ -1,3 +1,4 @@
+using Microsoft.Maui.Controls.Shapes;
 using System.Text.RegularExpressions;
 
 namespace OctoMaui.Controls;

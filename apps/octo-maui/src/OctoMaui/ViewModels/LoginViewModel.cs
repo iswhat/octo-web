@@ -320,8 +320,8 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
         ErrorMessage = string.Empty;
         try
         {
-            // code_type: 1 = forget password (mirrors requestEmailSendCode in login_vm.tsx)
-            var ok = await _auth.SendEmailCodeAsync(ForgetEmail, codeType: 1);
+            // code_type: 2 = forget password (mirrors requestEmailSendCode in login.tsx)
+            var ok = await _auth.SendEmailCodeAsync(ForgetEmail, codeType: 2);
             if (ok)
             {
                 _forgetCodeCountdownCts?.Cancel();

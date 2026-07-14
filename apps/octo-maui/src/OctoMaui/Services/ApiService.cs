@@ -124,7 +124,7 @@ public sealed class ApiService : IApiService
     public async Task SendEmailCodeAsync(string email, int codeType, CancellationToken ct = default)
     {
         // Mirrors login_vm.tsx requestEmailSendCode: { email, code_type }.
-        // code_type: 0 = register, 1 = forget password.
+        // code_type: 0 = register, 2 = forget password (matches login.tsx).
         var payload = new
         {
             email,
@@ -204,7 +204,7 @@ public sealed class ApiService : IApiService
     /// <inheritdoc />
     public async Task<LoginResult> LoginWithAuthCodeAsync(string authCode, CancellationToken ct = default)
     {
-        using var resp = await _http.PostAsync($"/v1/user/login_authcode/{Uri.EscapeDataString(authCode)}", content: null, ct);
+        using var resp = await _http.PostAsync($"/v1/user/login_authcode/{Uri.EscapeDataString(authCode)}?flag=2", content: null, ct);
         resp.EnsureSuccessStatusCode();
         var body = await resp.Content.ReadFromJsonAsync<LoginResult>(Json, ct)
                    ?? throw new InvalidOperationException("Empty authcode login response.");
