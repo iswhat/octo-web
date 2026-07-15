@@ -483,9 +483,12 @@ public sealed class WindowsTrayService : ITrayService, IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        // RemoveCore performs the native Shell_NotifyIconW(NIM_DELETE) and
-        // DestroyWindow calls that free the unmanaged resources.
-        RemoveCore();
+        // DestroyWindow must be called from the thread that created the window.
+        // Route teardown through the same MainThread marshal as Remove().
+        if (MainThread.IsMainThread)
+            RemoveCore();
+        else
+            MainThread.BeginInvokeOnMainThread(RemoveCore);
         GC.SuppressFinalize(this);
     }
 
