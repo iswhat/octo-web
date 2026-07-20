@@ -105,34 +105,20 @@ server {
         }
 
         # ── octo-doc HTML: single unified prefix /docs-html/* ─────────────────────
-        # All web→octo-doc traffic is namespaced under ONE prefix (evaluator ask:
-        # the previously scattered top-level paths /d/, /comments, /reactions,
-        # /grants/, /docs-admin/, /docs/{slug}/versions used generic words that risk
-        # colliding with SPA / other service routes and are hard to govern). The
-        # frontend now prepends /docs-html (resolveOctoDocBase default); this block
-        # strips it and rewrites each sub-path to octo-doc's native route, then
-        # forwards to $doc_app_url with the octo `token` header for identity.
+        # All web→octo-doc traffic is namespaced under ONE prefix. The frontend now builds
+        # octo-doc's REAL backend paths under this prefix (resolveOctoDocBase + /v1/...):
+        #   /docs-html/v1/comments, /docs-html/v1/reactions, /docs-html/v1/docs/{slug}/grants,
+        #   /docs-html/v1/docs/{slug}, /docs-html/v1/docs/{slug}/versions, and the render page
+        #   /docs-html/d/{slug}/v/{ver}.
+        # So this block only STRIPS the /docs-html prefix and forwards the already-correct path
+        # to $doc_app_url with the octo `token` header for identity — no per-path alias rewrites.
         # resolver + runtime-variable proxy_pass: doc host resolves per-request, so an
         # unset/unresolvable DOC_APP_URL 503s this route instead of failing nginx startup.
-        # Rewrites are ordered most-specific-first; each ends in `break`.
         location /docs-html/ {
             resolver 127.0.0.11 ipv6=off valid=30s;
             if ($doc_app_url = "") { return 503 '{"status":503,"msg":"octo-doc is not configured"}'; }
-            # per-doc grants: /docs-html/grants/{slug}[/{uid}] → /v1/docs/{slug}/grants[/{uid}]
-            # ({uid} form must precede the bare form)
-            rewrite ^/docs-html/grants/([^/]+)/(.+)$ /v1/docs/$1/grants/$2 break;
-            rewrite ^/docs-html/grants/([^/]+)$       /v1/docs/$1/grants      break;
-            # doc admin (delete): /docs-html/docs-admin/{slug} → /v1/docs/{slug}
-            rewrite ^/docs-html/docs-admin/(.+)$      /v1/docs/$1             break;
-            # versions: /docs-html/docs/{slug}/versions → /v1/docs/{slug}/versions
-            rewrite ^/docs-html/docs/(.+)$            /v1/docs/$1            break;
-            # comments / reactions: /docs-html/comments… → /v1/comments…
-            rewrite ^/docs-html/comments(.*)$         /v1/comments$1         break;
-            rewrite ^/docs-html/reactions(.*)$        /v1/reactions$1        break;
-            # render page: /docs-html/d/{slug}/v/{ver} → /d/{slug}/v/{ver} (verbatim)
-            rewrite ^/docs-html/(d/.*)$               /$1                    break;
-            # anything else under the prefix: strip /docs-html, forward as-is
-            rewrite ^/docs-html/(.*)$                 /$1                    break;
+            # Single strip: /docs-html/<real-path> → /<real-path> (already /v1/... or d/...).
+            rewrite ^/docs-html/(.*)$ /$1 break;
             proxy_pass $doc_app_url;
             proxy_set_header token $http_token;
             proxy_set_header Host $host;
