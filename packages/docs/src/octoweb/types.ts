@@ -217,6 +217,19 @@ export interface SpaceMemberLite {
   isBot?: boolean
 }
 
+/**
+ * Minimal shape of ONE bot returned by `GET /robot/owned_bots?space_id=` — the owner-scoped
+ * endpoint (octo-server modules/robot ownedBots) that returns only bots the current user CREATED,
+ * that are active and members of the given Space. The docs "new HTML" picker reads exactly these
+ * fields to render a choosable bot; it deliberately carries NO token / credential field — the Web
+ * layer never touches a Bot Token (plan §5.5).
+ */
+export interface OwnedBotLite {
+  uid: string
+  name: string
+  description?: string
+}
+
 /** The WKApp singleton surface the docs module touches. */
 export interface WKAppShape {
   shared: ModuleManager
